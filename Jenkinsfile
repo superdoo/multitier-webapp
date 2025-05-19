@@ -7,40 +7,60 @@ pipeline {
     BACKEND_PATH = "helm/backend"
     FRONTEND_PATH = "helm/frontend"
     KUBECONFIG = "${HOME}/.kube/config"
+    MINIKUBE_DOCKER_ENV = ''
   }
 
   stages {
     stage('Use Minikube Docker Daemon') {
       steps {
         script {
-          // Prepare Minikube Docker environment in Jenkins shell
-          env.MINIKUBE_DOCKER_ENV = sh(script: 'minikube docker-env --shell bash', returnStdout: true).trim()
+          try {
+            // Try to get minikube docker environment setup commands
+            def dockerEnvOutput = sh(script: 'minikube docker-env --shell bash', returnStdout: true).trim()
+            env.MINIKUBE_DOCKER_ENV = dockerEnvOutput
+            echo "Minikube docker-env loaded successfully."
+          } catch (Exception e) {
+            echo "⚠️ Warning: Failed to get minikube docker-env. Docker build stages may fail if Docker is not accessible."
+            env.MINIKUBE_DOCKER_ENV = ''
+          }
         }
       }
     }
 
     stage('Build Backend Image') {
       steps {
-        sh '''
-        eval "$MINIKUBE_DOCKER_ENV"
-        docker build -t mt-backend ${BACKEND_PATH}
-        '''
+        script {
+          if (env.MINIKUBE_DOCKER_ENV) {
+            sh '''
+              eval "$MINIKUBE_DOCKER_ENV"
+              docker build -t ${BACKEND_IMAGE} ${BACKEND_PATH}
+            '''
+          } else {
+            echo "Skipping Docker build for backend: Minikube Docker environment not set."
+          }
+        }
       }
     }
 
     stage('Build Frontend Image') {
       steps {
-        sh '''
-        eval "$MINIKUBE_DOCKER_ENV"
-        docker build -t mt-frontend ${FRONTEND_PATH}
-        '''
+        script {
+          if (env.MINIKUBE_DOCKER_ENV) {
+            sh '''
+              eval "$MINIKUBE_DOCKER_ENV"
+              docker build -t ${FRONTEND_IMAGE} ${FRONTEND_PATH}
+            '''
+          } else {
+            echo "Skipping Docker build for frontend: Minikube Docker environment not set."
+          }
+        }
       }
     }
 
     stage('Deploy Backend via Helm') {
       steps {
         sh '''
-        helm upgrade --install mt-backend ${BACKEND_PATH} --namespace mt-backend --create-namespace
+          helm upgrade --install ${BACKEND_IMAGE} ${BACKEND_PATH} --namespace mt-backend --create-namespace
         '''
       }
     }
@@ -48,7 +68,7 @@ pipeline {
     stage('Deploy Frontend via Helm') {
       steps {
         sh '''
-        helm upgrade --install mt-frontend ${FRONTEND_PATH} --namespace mt-frontend --create-namespace
+          helm upgrade --install ${FRONTEND_IMAGE} ${FRONTEND_PATH} --namespace mt-frontend --create-namespace
         '''
       }
     }

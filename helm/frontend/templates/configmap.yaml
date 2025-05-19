@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mt-frontend-html
+data:
+  index.html: |-
+    <html>
+      <body>
+        <h1>Hello from Frontend!</h1>
+        <p>Calling backend at <a href="http://192.168.49.2:30086/api/items">http://192.168.49.2:30086/api/items</a></p>
+      </body>
+    </html>

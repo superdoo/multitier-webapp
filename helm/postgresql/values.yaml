@@ -1,0 +1,6 @@
+postgresql:
+  auth:
+    postgresPassword: secretpassword
+  primary:
+    persistence:
+      enabled: false

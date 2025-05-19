@@ -1,0 +1,255 @@
+# Multi-tier Web App Project (Frontend + API + DB)
+
+This project outlines the deployment of a sample multi-tier application on Minikube using Helm, with each component (Frontend, Backend API, and PostgreSQL DB) deployed as independent Helm releases. This allows independent scaling and updates.
+
+---
+
+## Prerequisites
+
+* Minikube
+* kubectl
+* PostgreSQL platform (Bitnami Helm chart)
+* Helm (v3+)
+
+---
+
+## Project Structure
+
+```
+multi-tier-web-app/
+├── helm/
+│   ├── frontend/
+│   ├── backend/
+│   └── postgresql/  # uses Bitnami chart
+├── manifests/
+│   └── namespaces.yaml
+├── scripts/
+│   └── deploy.sh
+└── README.md
+```
+
+---
+
+## Step 1: Create Namespaces
+
+```yaml
+# manifests/namespaces.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: frontend
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: backend
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: database
+```
+
+Apply:
+
+```bash
+kubectl apply -f manifests/namespaces.yaml
+```
+
+---
+
+## Step 2: Deploy PostgreSQL
+
+Use the Bitnami PostgreSQL Helm chart:
+
+```bash
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm repo update
+```
+
+Install PostgreSQL:
+
+```bash
+helm install postgres bitnami/postgresql \
+  --namespace database \
+  --set auth.postgresPassword=secretpassword \
+  --set primary.persistence.enabled=false
+```
+
+Connection info:
+
+* Host: `postgres.database.svc.cluster.local`
+* User: `postgres`
+* Password: `secretpassword`
+
+---
+
+## Step 3: Backend API (Example: Python Flask)
+
+### Deployment (helm/backend/templates/deployment.yaml)
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: your-dockerhub-username/backend:latest
+          ports:
+            - containerPort: 5000
+          env:
+            - name: POSTGRES_HOST
+              value: postgres.database.svc.cluster.local
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_PASSWORD
+              value: secretpassword
+```
+
+### Service (helm/backend/templates/service.yaml)
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  selector:
+    app: backend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5000
+```
+
+Install Backend:
+
+```bash
+helm install backend ./helm/backend --namespace backend
+```
+
+---
+
+## Step 4: Frontend (Static Site via Nginx)
+
+### Deployment (helm/frontend/templates/deployment.yaml)
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:alpine
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: web-content
+              mountPath: /usr/share/nginx/html
+      volumes:
+        - name: web-content
+          configMap:
+            name: web-config
+```
+
+### ConfigMap (helm/frontend/templates/configmap.yaml)
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-config
+data:
+  index.html: |
+    <html><body>
+    <h1>Hello from Frontend!</h1>
+    <p>Calling backend at /api</p>
+    </body></html>
+```
+
+### Service (helm/frontend/templates/service.yaml)
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+spec:
+  selector:
+    app: frontend
+  ports:
+    - port: 80
+      targetPort: 80
+  type: NodePort
+```
+
+Install Frontend:
+
+```bash
+helm install frontend ./helm/frontend --namespace frontend
+```
+
+---
+
+## Accessing the App
+
+Get NodePort of frontend service:
+
+```bash
+kubectl get svc -n frontend
+```
+
+Access:
+
+```
+http://$(minikube ip):<nodePort>
+```
+
+---
+
+## Optional: Deployment Script
+
+### scripts/deploy.sh
+
+```bash
+#!/bin/bash
+
+kubectl apply -f manifests/namespaces.yaml
+
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm repo update
+
+helm install postgres bitnami/postgresql \
+  --namespace database \
+  --set auth.postgresPassword=secretpassword \
+  --set primary.persistence.enabled=false
+
+helm install backend ./helm/backend --namespace backend
+helm install frontend ./helm/frontend --namespace frontend
+```
+
+---
+
+Would you like Helm chart scaffolding (`Chart.yaml`, values.yaml, etc.) generated next for each component?

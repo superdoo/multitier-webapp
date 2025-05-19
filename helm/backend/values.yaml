@@ -1,0 +1,18 @@
+replicaCount: 2
+
+image:
+  repository: mt-backend
+  tag: latest
+  pullPolicy: Never
+  
+
+service:
+  type: NodePort
+  port: 5000
+  nodePort: 30086  
+
+env:
+  POSTGRES_HOST: postgres-postgresql.mt-database.svc.cluster.local
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: secretpassword
+

@@ -1,0 +1,27 @@
+<script>
+  async function loadItems() {
+    try {
+      const response = await fetch('http://192.168.49.2:30086/api/items');
+      if (!response.ok) throw new Error('Network response was not ok');
+      const items = await response.json();
+
+      const ul = document.getElementById('items-list');
+      ul.innerHTML = ''; // Clear existing items
+
+      items.forEach(item => {
+        const li = document.createElement('li');
+        li.textContent = `${item.id}: ${item.name} — ${item.description}`;
+        ul.appendChild(li);
+      });
+    } catch (error) {
+      console.error('Failed to load items:', error);
+      document.getElementById('items-list').textContent = 'Failed to load items.';
+    }
+  }
+
+  // Initial load
+  loadItems();
+
+  // Reload items every 5 seconds
+  setInterval(loadItems, 5000);
+</script>

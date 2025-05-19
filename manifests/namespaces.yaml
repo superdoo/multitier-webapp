@@ -1,0 +1,15 @@
+# manifests/namespaces.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mt-frontend
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mt-backend
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mt-database

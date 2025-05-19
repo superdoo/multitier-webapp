@@ -1,0 +1,32 @@
+multi-tier-web-app/
+├── helm/
+│   ├── backend/
+│   │   ├── Chart.yaml               # Helm chart metadata for backend
+│   │   ├── values.yaml              # Config values (image, env, etc.)
+│   │   ├── templates/               # Kubernetes resource templates
+│   │   │   ├── deployment.yaml      # Backend Deployment manifest
+│   │   │   ├── service.yaml         # Backend Service manifest
+│   │   ├── app.py                   # Flask app source code
+│   │   ├── requirements.txt         # Python dependencies
+│   │   ├── Dockerfile               # Dockerfile for backend (renamed from mt-backend)
+│
+│   ├── frontend/
+│   │   ├── Chart.yaml
+│   │   ├── values.yaml
+│   │   ├── templates/
+│   │   │   ├── deployment.yaml
+│   │   │   ├── service.yaml
+            ├── configmap.yaml
+│   │   ├── app.py                   # React app source code (if applicable)    
+│   │   ├── index.html               # Your static frontend HTML (example)
+│   │   ├── Dockerfile               # Dockerfile for frontend (if needed)
+│
+│   ├── postgresql/
+│   │   ├── Chart.yaml
+│   │   ├── values.yaml
+├── scripts/
+│   ├── deployments.sh               # Shell script to deploy all charts
+│   └── setup.sh                     # Optional: environment setup script
+│
+├── README.md                        # Project overview and instructions
+└── docker-compose.yml               # Optional: for local dev/testing

@@ -25,7 +25,7 @@ pipeline {
     stage('Build Backend Image') {
       steps {
         sh '''
-          source minikube_docker_env.sh
+          . minikube_docker_env.sh
           docker build -t mt-backend ${BACKEND_PATH}
         '''
       }
@@ -34,11 +34,12 @@ pipeline {
     stage('Build Frontend Image') {
       steps {
         sh '''
-          source minikube_docker_env.sh
+          . minikube_docker_env.sh
           docker build -t mt-frontend ${FRONTEND_PATH}
         '''
       }
     }
+
 
     stage('Deploy Backend via Helm') {
       steps {

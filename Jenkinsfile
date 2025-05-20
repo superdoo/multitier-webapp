@@ -13,10 +13,10 @@ pipeline {
     stage('Use Minikube Docker Daemon') {
       steps {
         script {
-          // Verify Minikube is running
+          // Ensure Minikube is running
           sh 'minikube status || minikube start'
 
-          // Export Docker environment into a script file
+          // Save Docker environment variables to a file
           sh 'minikube docker-env --shell bash > minikube_docker_env.sh'
         }
       }
@@ -24,36 +24,35 @@ pipeline {
 
     stage('Build Backend Image') {
       steps {
-        sh '''
-          . minikube_docker_env.sh
-          docker build -t mt-backend ${BACKEND_PATH}
-        '''
+        sh """
+          . ./minikube_docker_env.sh
+          docker build -t ${BACKEND_IMAGE} ${BACKEND_PATH}
+        """
       }
     }
 
     stage('Build Frontend Image') {
       steps {
-        sh '''
-          . minikube_docker_env.sh
-          docker build -t mt-frontend ${FRONTEND_PATH}
-        '''
+        sh """
+          . ./minikube_docker_env.sh
+          docker build -t ${FRONTEND_IMAGE} ${FRONTEND_PATH}
+        """
       }
     }
 
-
     stage('Deploy Backend via Helm') {
       steps {
-        sh '''
-          helm upgrade --install mt-backend ${BACKEND_PATH} --namespace mt-backend --create-namespace
-        '''
+        sh """
+          helm upgrade --install ${BACKEND_IMAGE} ${BACKEND_PATH} --namespace ${BACKEND_IMAGE} --create-namespace
+        """
       }
     }
 
     stage('Deploy Frontend via Helm') {
       steps {
-        sh '''
-          helm upgrade --install mt-frontend ${FRONTEND_PATH} --namespace mt-frontend --create-namespace
-        '''
+        sh """
+          helm upgrade --install ${FRONTEND_IMAGE} ${FRONTEND_PATH} --namespace ${FRONTEND_IMAGE} --create-namespace
+        """
       }
     }
   }

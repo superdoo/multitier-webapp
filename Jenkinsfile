@@ -10,11 +10,23 @@ pipeline {
   }
 
   stages {
+    stage('Use Minikube Docker Daemon') {
+      steps {
+        script {
+          // Verify Minikube is running
+          sh 'minikube status || minikube start'
+
+          // Export Docker environment into a script file
+          sh 'minikube docker-env --shell bash > minikube_docker_env.sh'
+        }
+      }
+    }
+
     stage('Build Backend Image') {
       steps {
         sh '''
-          eval $(minikube docker-env)
-          docker build -t ${BACKEND_IMAGE}:latest ${BACKEND_PATH}
+          source minikube_docker_env.sh
+          docker build -t mt-backend ${BACKEND_PATH}
         '''
       }
     }
@@ -22,8 +34,8 @@ pipeline {
     stage('Build Frontend Image') {
       steps {
         sh '''
-          eval $(minikube docker-env)
-          docker build -t ${FRONTEND_IMAGE}:latest ${FRONTEND_PATH}
+          source minikube_docker_env.sh
+          docker build -t mt-frontend ${FRONTEND_PATH}
         '''
       }
     }

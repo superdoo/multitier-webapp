@@ -55,6 +55,17 @@ pipeline {
         """
       }
     }
+
+    stage('Deploy Database via Helm') {
+      steps {
+        sh '''
+          helm upgrade --install mt-database ${DATABASE_PATH} --namespace mt-database --create-namespace
+        '''
+      }
+    }
+
+
+
   }
 
   post {

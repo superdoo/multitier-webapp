@@ -4,19 +4,14 @@ image:
   repository: mt-backend
   tag: latest
   pullPolicy: IfNotPresent
-  
 
 service:
   type: NodePort
   port: 5000
-  nodePort: 30086  
+  nodePort: 30086
 
-env:
-  - name: DB_HOST
-    value: "mt-database-postgresql.mt-database.svc.cluster.local"
-  - name: DB_PASSWORD
-    value: "secretpassword"
-  - name: DB_USER
-    value: "postgres"
-  - name: DB_NAME
-    value: "postgres"
+db:
+  host: mt-database-postgresql.mt-database.svc.cluster.local
+  user: postgres
+  password: secretpassword
+  name: postgres

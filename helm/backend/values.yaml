@@ -12,7 +12,11 @@ service:
   nodePort: 30086  
 
 env:
-  POSTGRES_HOST: postgres-postgresql.mt-database.svc.cluster.local
-  POSTGRES_USER: postgres
-  POSTGRES_PASSWORD: secretpassword
-
+  - name: DB_HOST
+    value: "mt-database-postgresql.mt-database.svc.cluster.local"
+  - name: DB_PASSWORD
+    value: "secretpassword"
+  - name: DB_USER
+    value: "postgres"
+  - name: DB_NAME
+    value: "postgres"

@@ -6,6 +6,7 @@ pipeline {
     FRONTEND_IMAGE = "mt-frontend"
     BACKEND_PATH = "helm/backend"
     FRONTEND_PATH = "helm/frontend"
+    DATABASE_PATH = "helm/postgresql"   // <-- Added this line for your database chart
     KUBECONFIG = "${HOME}/.kube/config"
   }
 
@@ -58,14 +59,11 @@ pipeline {
 
     stage('Deploy Database via Helm') {
       steps {
-        sh '''
+        sh """
           helm upgrade --install mt-database ${DATABASE_PATH} --namespace mt-database --create-namespace
-        '''
+        """
       }
     }
-
-
-
   }
 
   post {

@@ -6,7 +6,7 @@ pipeline {
     FRONTEND_IMAGE = "mt-frontend"
     BACKEND_PATH = "helm/backend"
     FRONTEND_PATH = "helm/frontend"
-    DATABASE_PATH = "helm/postgresql"   // <-- Added this line for your database chart
+    DATABASE_PATH = "helm/postgresql"
     KUBECONFIG = "${HOME}/.kube/config"
   }
 
@@ -14,10 +14,7 @@ pipeline {
     stage('Use Minikube Docker Daemon') {
       steps {
         script {
-          // Ensure Minikube is running
           sh 'minikube status || minikube start'
-
-          // Save Docker environment variables to a file
           sh 'minikube docker-env --shell bash > minikube_docker_env.sh'
         }
       }
@@ -44,7 +41,9 @@ pipeline {
     stage('Deploy Backend via Helm') {
       steps {
         sh """
-          helm upgrade --install ${BACKEND_IMAGE} ${BACKEND_PATH} --namespace ${BACKEND_IMAGE} --create-namespace
+          helm upgrade --install ${BACKEND_IMAGE} ${BACKEND_PATH} \\
+            --namespace ${BACKEND_IMAGE} --create-namespace \\
+            -f ${BACKEND_PATH}/values.yaml
         """
       }
     }
@@ -52,7 +51,8 @@ pipeline {
     stage('Deploy Frontend via Helm') {
       steps {
         sh """
-          helm upgrade --install ${FRONTEND_IMAGE} ${FRONTEND_PATH} --namespace ${FRONTEND_IMAGE} --create-namespace
+          helm upgrade --install ${FRONTEND_IMAGE} ${FRONTEND_PATH} \\
+            --namespace ${FRONTEND_IMAGE} --create-namespace
         """
       }
     }
@@ -60,7 +60,8 @@ pipeline {
     stage('Deploy Database via Helm') {
       steps {
         sh """
-          helm upgrade --install mt-database ${DATABASE_PATH} --namespace mt-database --create-namespace
+          helm upgrade --install mt-database ${DATABASE_PATH} \\
+            --namespace mt-database --create-namespace
         """
       }
     }

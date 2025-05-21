@@ -52,7 +52,8 @@ pipeline {
       steps {
         sh """
           helm upgrade --install ${FRONTEND_IMAGE} ${FRONTEND_PATH} \\
-            --namespace ${FRONTEND_IMAGE} --create-namespace
+            --namespace ${FRONTEND_IMAGE} --create-namespace \\
+            -f ${FRONTEND_PATH}/values.yaml
         """
       }
     }
@@ -61,7 +62,8 @@ pipeline {
       steps {
         sh """
           helm upgrade --install mt-database ${DATABASE_PATH} \\
-            --namespace mt-database --create-namespace
+            --namespace mt-database --create-namespace \\
+            -f ${DATABASE_PATH}/values.yaml
         """
       }
     }

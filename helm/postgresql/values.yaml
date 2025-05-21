@@ -1,6 +1,21 @@
-postgresql:
-  auth:
-    postgresPassword: secretpassword
-  primary:
-    persistence:
-      enabled: false
+replicaCount: 2
+
+image:
+  repository: mt-backend
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: NodePort
+  port: 5000
+  nodePort: 30086
+
+env:
+  - name: POSTGRES_HOST
+    value: "mt-database-postgresql.mt-database.svc.cluster.local"
+  - name: POSTGRES_PASSWORD
+    value: "secretpassword"
+  - name: POSTGRES_USER
+    value: "postgres"
+  - name: POSTGRES_DB
+    value: "postgres"

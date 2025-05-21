@@ -10,8 +10,12 @@ service:
   port: 5000
   nodePort: 30086
 
-db:
-  host: mt-database-postgresql.mt-database.svc.cluster.local
-  user: postgres
-  password: secretpassword
-  name: postgres
+env:
+  - name: POSTGRES_HOST
+    value: mt-database-postgresql.mt-database.svc.cluster.local
+  - name: POSTGRES_USER
+    value: postgres
+  - name: POSTGRES_PASSWORD
+    value: secretpassword
+  - name: POSTGRES_DB
+    value: postgres

@@ -17,14 +17,13 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
-            - containerPort: 5000
+            - containerPort: {{ .Values.service.port }}
           env:
-          - name: DB_HOST
-            value: {{ .Values.db.host | quote }}
-          - name: DB_USER
-            value: {{ .Values.db.user | quote }}
-          - name: DB_PASSWORD
-            value: {{ .Values.db.password | quote }}
-          - name: DB_NAME
-            value: {{ .Values.db.name | quote }}
-
+            - name: DB_HOST
+              value: "{{ .Values.db.host }}"
+            - name: DB_USER
+              value: "{{ .Values.db.user }}"
+            - name: DB_PASSWORD
+              value: "{{ .Values.db.password }}"
+            - name: DB_NAME
+              value: "{{ .Values.db.name }}"

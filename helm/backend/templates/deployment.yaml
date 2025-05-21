@@ -18,12 +18,12 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.service.port }}
-env:
-  - name: POSTGRES_HOST
-    value: "mt-database-postgresql.mt-database.svc.cluster.local"
-  - name: POSTGRES_USER
-    value: "postgres"
-  - name: POSTGRES_PASSWORD
-    value: "secretpassword"
-  - name: POSTGRES_DB
-    value: "postgres"
+          env:
+            - name: POSTGRES_HOST
+              value: "mt-database-postgresql.mt-database.svc.cluster.local"
+            - name: POSTGRES_USER
+              value: "postgres"
+            - name: POSTGRES_PASSWORD
+              value: "secretpassword"
+            - name: POSTGRES_DB
+              value: "postgres"

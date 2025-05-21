@@ -25,6 +25,5 @@ spec:
               value: "postgres"
             - name: POSTGRES_PASSWORD
               value: "secretpassword"
-"
             - name: POSTGRES_DB
               value: "postgres"

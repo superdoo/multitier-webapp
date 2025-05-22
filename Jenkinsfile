@@ -30,6 +30,15 @@ pipeline {
         '''
       }
     }
+    stage('Prepare Host Report Directory') {
+  steps {
+    sh '''#!/bin/bash
+      mkdir -p /home/reports
+      chmod 777 /home/reports
+      echo "✅ Created /home/reports with open permissions."
+    '''
+        }
+    }
 
     stage('Scan Backend Image with Trivy + Send to Splunk') {
       steps {

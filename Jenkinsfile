@@ -36,15 +36,21 @@ pipeline {
           sh '''#!/bin/bash
             . ./minikube_docker_env.sh
 
-            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \\
-              -v $PWD:/report aquasec/trivy image --format json -o /report/backend-report.json ${BACKEND_IMAGE}
+            REPORT_PATH="/report/backend-report.json"
+            PAYLOAD="/tmp/splunk_backend_payload.json"
 
-            echo '{"event":'$(cat /report/backend-report.json)', "sourcetype": "trivy", "source": "backend-scan", "host": "jenkins"}' > /tmp/splunk_payload.json
+            mkdir -p /report
+
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \\
+              -v $PWD:/report aquasec/trivy image --format json -o $REPORT_PATH ${BACKEND_IMAGE}
+
+            JSON=$(cat $REPORT_PATH | jq -c .)
+            echo '{"event":'"$JSON"', "sourcetype": "trivy", "source": "backend-scan", "host": "jenkins"}' > $PAYLOAD
 
             curl -s -k -X POST "${SPLUNK_HEC_URL}" \\
               -H "Authorization: Splunk ${SPLUNK_TOKEN}" \\
               -H "Content-Type: application/json" \\
-              -d @/tmp/splunk_payload.json
+              -d @$PAYLOAD
           '''
         }
       }
@@ -65,15 +71,21 @@ pipeline {
           sh '''#!/bin/bash
             . ./minikube_docker_env.sh
 
-            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \\
-              -v $PWD:/report aquasec/trivy image --format json -o /report/frontend-report.json ${FRONTEND_IMAGE}
+            REPORT_PATH="/report/frontend-report.json"
+            PAYLOAD="/tmp/splunk_frontend_payload.json"
 
-            echo '{"event":'$(cat /report/frontend-report.json)', "sourcetype": "trivy", "source": "frontend-scan", "host": "jenkins"}' > /tmp/splunk_payload.json
+            mkdir -p /report
+
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \\
+              -v $PWD:/report aquasec/trivy image --format json -o $REPORT_PATH ${FRONTEND_IMAGE}
+
+            JSON=$(cat $REPORT_PATH | jq -c .)
+            echo '{"event":'"$JSON"', "sourcetype": "trivy", "source": "frontend-scan", "host": "jenkins"}' > $PAYLOAD
 
             curl -s -k -X POST "${SPLUNK_HEC_URL}" \\
               -H "Authorization: Splunk ${SPLUNK_TOKEN}" \\
               -H "Content-Type: application/json" \\
-              -d @/tmp/splunk_payload.json
+              -d @$PAYLOAD
           '''
         }
       }
@@ -134,10 +146,4 @@ pipeline {
 
   post {
     success {
-      echo '✅ Multi-tier app successfully built, scanned, deployed, and logs sent to Splunk.'
-    }
-    failure {
-      echo '❌ CI/CD pipeline failed.'
-    }
-  }
-}
+      echo '✅ Multi-tier app

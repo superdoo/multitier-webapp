@@ -9,7 +9,7 @@ pipeline {
     DATABASE_PATH = "helm/postgresql"
     KUBECONFIG = "${HOME}/.kube/config"
     SPLUNK_HEC_URL = "http://192.168.49.2:31002/services/collector/event"
-    REPORT_DIR = "/home/reports"
+    REPORT_DIR = "${env.WORKSPACE}/reports"
   }
 
   stages {
@@ -22,6 +22,15 @@ pipeline {
       }
     }
 
+    stage('Prepare Report Directory') {
+      steps {
+        sh '''
+          mkdir -p ${REPORT_DIR}
+          chmod 755 ${REPORT_DIR}
+        '''
+      }
+    }
+
     stage('Build Backend Image') {
       steps {
         sh '''#!/bin/bash
@@ -30,15 +39,6 @@ pipeline {
         '''
       }
     }
-    stage('Prepare Host Report Directory') {
-  steps {
-    sh '''#!/bin/bash
-      mkdir -p /home/reports
-      chmod 777 /home/reports
-      echo "✅ Created /home/reports with open permissions."
-    '''
-        }
-    }
 
     stage('Scan Backend Image with Trivy + Send to Splunk') {
       steps {
@@ -46,28 +46,20 @@ pipeline {
           sh '''#!/bin/bash
             . ./minikube_docker_env.sh
 
-            mkdir -p ${REPORT_DIR}
-            BACKEND_REPORT="${REPORT_DIR}/backend-report.json"
-            BACKEND_PAYLOAD="/tmp/splunk_backend_payload.json"
+            REPORT_PATH="${REPORT_DIR}/backend-report.json"
+            PAYLOAD="/tmp/splunk_backend_payload.json"
 
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \\
-              -v ${REPORT_DIR}:/reports aquasec/trivy image \\
-              --format json -o /reports/backend-report.json ${BACKEND_IMAGE}
+              -v ${REPORT_DIR}:${REPORT_DIR} aquasec/trivy image --format json -o ${REPORT_PATH} ${BACKEND_IMAGE}
 
-            echo "📄 Trivy backend scan result:"
-            cat $BACKEND_REPORT
-
-            jq -n --slurpfile report $BACKEND_REPORT \\
+            jq -n --slurpfile report ${REPORT_PATH} \\
               --arg sourcetype "trivy" --arg source "backend-scan" --arg host "jenkins" \\
-              '{event: $report[0], sourcetype: $sourcetype, source: $source, host: $host}' > $BACKEND_PAYLOAD
+              '{event: $report[0], sourcetype: $sourcetype, source: $source, host: $host}' > ${PAYLOAD}
 
-            echo "📦 Sending to Splunk:"
-            cat $BACKEND_PAYLOAD
-
-            curl -v -k -X POST "${SPLUNK_HEC_URL}" \\
+            curl -s -k -X POST "${SPLUNK_HEC_URL}" \\
               -H "Authorization: Splunk ${SPLUNK_TOKEN}" \\
               -H "Content-Type: application/json" \\
-              -d @$BACKEND_PAYLOAD
+              -d @${PAYLOAD}
           '''
         }
       }
@@ -88,28 +80,20 @@ pipeline {
           sh '''#!/bin/bash
             . ./minikube_docker_env.sh
 
-            mkdir -p ${REPORT_DIR}
-            FRONTEND_REPORT="${REPORT_DIR}/frontend-report.json"
-            FRONTEND_PAYLOAD="/tmp/splunk_frontend_payload.json"
+            REPORT_PATH="${REPORT_DIR}/frontend-report.json"
+            PAYLOAD="/tmp/splunk_frontend_payload.json"
 
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \\
-              -v ${REPORT_DIR}:/reports aquasec/trivy image \\
-              --format json -o /reports/frontend-report.json ${FRONTEND_IMAGE}
+              -v ${REPORT_DIR}:${REPORT_DIR} aquasec/trivy image --format json -o ${REPORT_PATH} ${FRONTEND_IMAGE}
 
-            echo "📄 Trivy frontend scan result:"
-            cat $FRONTEND_REPORT
-
-            jq -n --slurpfile report $FRONTEND_REPORT \\
+            jq -n --slurpfile report ${REPORT_PATH} \\
               --arg sourcetype "trivy" --arg source "frontend-scan" --arg host "jenkins" \\
-              '{event: $report[0], sourcetype: $sourcetype, source: $source, host: $host}' > $FRONTEND_PAYLOAD
+              '{event: $report[0], sourcetype: $sourcetype, source: $source, host: $host}' > ${PAYLOAD}
 
-            echo "📦 Sending to Splunk:"
-            cat $FRONTEND_PAYLOAD
-
-            curl -v -k -X POST "${SPLUNK_HEC_URL}" \\
+            curl -s -k -X POST "${SPLUNK_HEC_URL}" \\
               -H "Authorization: Splunk ${SPLUNK_TOKEN}" \\
               -H "Content-Type: application/json" \\
-              -d @$FRONTEND_PAYLOAD
+              -d @${PAYLOAD}
           '''
         }
       }

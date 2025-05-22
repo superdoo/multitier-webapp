@@ -37,12 +37,14 @@ pipeline {
             . ./minikube_docker_env.sh
 
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \\
-              -v \\$PWD:/report aquasec/trivy image --format json -o /report/backend-report.json ${BACKEND_IMAGE}
+              -v \$PWD:/report aquasec/trivy image --format json -o /report/backend-report.json ${BACKEND_IMAGE}
+
+            echo '{"event":'\\\$(cat /report/backend-report.json)', "sourcetype": "trivy", "source": "backend-scan", "host": "jenkins"}' > /tmp/splunk_payload.json
 
             curl -s -k -X POST "\\${SPLUNK_HEC_URL}" \\
               -H "Authorization: Splunk \\$SPLUNK_TOKEN" \\
               -H "Content-Type: application/json" \\
-              -d @<(echo '{\"event\":'\\\\\\$(cat /report/backend-report.json)', \"sourcetype\": \"trivy\", \"source\": \"backend-scan\", \"host\": \"jenkins\"}')
+              -d @/tmp/splunk_payload.json
           """
         }
       }
@@ -64,12 +66,14 @@ pipeline {
             . ./minikube_docker_env.sh
 
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \\
-              -v \\$PWD:/report aquasec/trivy image --format json -o /report/frontend-report.json ${FRONTEND_IMAGE}
+              -v \$PWD:/report aquasec/trivy image --format json -o /report/frontend-report.json ${FRONTEND_IMAGE}
+
+            echo '{"event":'\\\$(cat /report/frontend-report.json)', "sourcetype": "trivy", "source": "frontend-scan", "host": "jenkins"}' > /tmp/splunk_payload.json
 
             curl -s -k -X POST "\\${SPLUNK_HEC_URL}" \\
               -H "Authorization: Splunk \\$SPLUNK_TOKEN" \\
               -H "Content-Type: application/json" \\
-              -d @<(echo '{\"event\":'\\\\\\$(cat /report/frontend-report.json)', \"sourcetype\": \"trivy\", \"source\": \"frontend-scan\", \"host\": \"jenkins\"}')
+              -d @/tmp/splunk_payload.json
           """
         }
       }
@@ -79,9 +83,9 @@ pipeline {
       steps {
         dir("${env.WORKSPACE}") {
           sh """
-            docker run --rm -v "\\$PWD":/project -w /project aquasec/trivy config ${BACKEND_PATH}
-            docker run --rm -v "\\$PWD":/project -w /project aquasec/trivy config ${FRONTEND_PATH}
-            docker run --rm -v "\\$PWD":/project -w /project aquasec/trivy config ${DATABASE_PATH}
+            docker run --rm -v "\$PWD":/project -w /project aquasec/trivy config ${BACKEND_PATH}
+            docker run --rm -v "\$PWD":/project -w /project aquasec/trivy config ${FRONTEND_PATH}
+            docker run --rm -v "\$PWD":/project -w /project aquasec/trivy config ${DATABASE_PATH}
           """
         }
       }
@@ -91,7 +95,7 @@ pipeline {
       steps {
         dir("${env.WORKSPACE}") {
           sh """
-            docker run --rm -v "\\$PWD":/project -w /project aquasec/trivy fs . --scanners secret
+            docker run --rm -v "\$PWD":/project -w /project aquasec/trivy fs . --scanners secret
           """
         }
       }

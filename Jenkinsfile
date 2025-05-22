@@ -44,8 +44,10 @@ pipeline {
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \\
               -v $PWD:/report aquasec/trivy image --format json -o $REPORT_PATH ${BACKEND_IMAGE}
 
-            JSON=$(cat $REPORT_PATH | jq -c .)
-            echo '{"event":'"$JSON"', "sourcetype": "trivy", "source": "backend-scan", "host": "jenkins"}' > $PAYLOAD
+            # Create valid Splunk HEC JSON payload using jq
+            jq -n --slurpfile report $REPORT_PATH \\
+              --arg sourcetype "trivy" --arg source "backend-scan" --arg host "jenkins" \\
+              '{event: $report[0], sourcetype: $sourcetype, source: $source, host: $host}' > $PAYLOAD
 
             curl -s -k -X POST "${SPLUNK_HEC_URL}" \\
               -H "Authorization: Splunk ${SPLUNK_TOKEN}" \\
@@ -79,8 +81,10 @@ pipeline {
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \\
               -v $PWD:/report aquasec/trivy image --format json -o $REPORT_PATH ${FRONTEND_IMAGE}
 
-            JSON=$(cat $REPORT_PATH | jq -c .)
-            echo '{"event":'"$JSON"', "sourcetype": "trivy", "source": "frontend-scan", "host": "jenkins"}' > $PAYLOAD
+            # Create valid Splunk HEC JSON payload using jq
+            jq -n --slurpfile report $REPORT_PATH \\
+              --arg sourcetype "trivy" --arg source "frontend-scan" --arg host "jenkins" \\
+              '{event: $report[0], sourcetype: $sourcetype, source: $source, host: $host}' > $PAYLOAD
 
             curl -s -k -X POST "${SPLUNK_HEC_URL}" \\
               -H "Authorization: Splunk ${SPLUNK_TOKEN}" \\

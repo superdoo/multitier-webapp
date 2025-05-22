@@ -60,19 +60,23 @@ pipeline {
 
     stage('Scan Helm Charts (Trivy Config)') {
       steps {
-        sh """
-          docker run --rm -v "$PWD":/project -w /project aquasec/trivy config ${BACKEND_PATH}
-          docker run --rm -v "$PWD":/project -w /project aquasec/trivy config ${FRONTEND_PATH}
-          docker run --rm -v "$PWD":/project -w /project aquasec/trivy config ${DATABASE_PATH}
-        """
+        dir("${env.WORKSPACE}") {
+          sh """
+            docker run --rm -v "\$PWD":/project -w /project aquasec/trivy config ${BACKEND_PATH}
+            docker run --rm -v "\$PWD":/project -w /project aquasec/trivy config ${FRONTEND_PATH}
+            docker run --rm -v "\$PWD":/project -w /project aquasec/trivy config ${DATABASE_PATH}
+          """
+        }
       }
     }
 
     stage('Scan Secrets in Project') {
       steps {
-        sh """
-          docker run --rm -v "$PWD":/project -w /project aquasec/trivy fs . --scanners secret
-        """
+        dir("${env.WORKSPACE}") {
+          sh """
+            docker run --rm -v "\$PWD":/project -w /project aquasec/trivy fs . --scanners secret
+          """
+        }
       }
     }
 

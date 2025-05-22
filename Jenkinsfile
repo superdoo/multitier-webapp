@@ -34,6 +34,8 @@ pipeline {
       steps {
         withCredentials([string(credentialsId: 'SPLUNK_HEC_TOKEN', variable: 'SPLUNK_TOKEN')]) {
           sh '''#!/bin/bash
+            set -eux
+
             . ./minikube_docker_env.sh
 
             REPORT_DIR="${WORKSPACE}/reports"
@@ -75,7 +77,7 @@ pipeline {
       }
     }
 
-    // You can add similar logging here later once backend scan is confirmed working
+    // You can add similar logging for frontend scan later if needed
 
     stage('Scan Helm Charts (Trivy Config)') {
       steps {

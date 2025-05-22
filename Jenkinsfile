@@ -146,4 +146,10 @@ pipeline {
 
   post {
     success {
-      echo '✅ Multi-tier app
+      echo '✅ Multi-tier app successfully built, scanned, deployed, and logs sent to Splunk.'
+    }
+    failure {
+      echo '❌ CI/CD pipeline failed.'
+    }
+  }
+}

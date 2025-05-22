@@ -9,19 +9,9 @@ pipeline {
     DATABASE_PATH = "helm/postgresql"
     KUBECONFIG = "${HOME}/.kube/config"
     SPLUNK_HEC_URL = "http://192.168.49.2:31002/services/collector/event"
-    REPORTS_DIR = "${WORKSPACE}/reports"
   }
 
   stages {
-    stage('Prepare Report Directory') {
-      steps {
-        sh '''
-          mkdir -p ${REPORTS_DIR}
-          chmod -R 777 ${REPORTS_DIR}
-        '''
-      }
-    }
-
     stage('Use Minikube Docker Daemon') {
       steps {
         script {
@@ -46,17 +36,28 @@ pipeline {
           sh '''#!/bin/bash
             . ./minikube_docker_env.sh
 
-            REPORT_PATH="${REPORTS_DIR}/backend-report.json"
+            REPORT_DIR="${WORKSPACE}/reports"
+            REPORT_PATH="$REPORT_DIR/backend-report.json"
             PAYLOAD="/tmp/splunk_backend_payload.json"
 
+            echo "[INFO] Creating report dir at: $REPORT_DIR"
+            mkdir -p "$REPORT_DIR"
+            chmod -R 777 "$REPORT_DIR"
+            ls -la "$REPORT_DIR"
+
+            echo "[INFO] Running Trivy scan on ${BACKEND_IMAGE}..."
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \\
-              -v ${REPORTS_DIR}:/report aquasec/trivy image --format json -o /report/backend-report.json ${BACKEND_IMAGE}
+              -v "$REPORT_DIR":/report aquasec/trivy image --format json -o /report/backend-report.json ${BACKEND_IMAGE}
+
+            echo "[INFO] Report file contents:"
+            cat "$REPORT_PATH" || echo "[ERROR] Report not found!"
 
             jq -n --slurpfile report "$REPORT_PATH" \\
               --arg sourcetype "trivy" --arg source "backend-scan" --arg host "jenkins" \\
               '{event: $report[0], sourcetype: $sourcetype, source: $source, host: $host}' > $PAYLOAD
 
-            curl -s -k -X POST "${SPLUNK_HEC_URL}" \\
+            echo "[INFO] Posting to Splunk at ${SPLUNK_HEC_URL}"
+            curl -v -k -X POST "${SPLUNK_HEC_URL}" \\
               -H "Authorization: Splunk ${SPLUNK_TOKEN}" \\
               -H "Content-Type: application/json" \\
               -d @$PAYLOAD
@@ -74,32 +75,59 @@ pipeline {
       }
     }
 
-    stage('Scan Frontend Image with Trivy + Send to Splunk') {
+    // You can add similar logging here later once backend scan is confirmed working
+
+    stage('Scan Helm Charts (Trivy Config)') {
       steps {
-        withCredentials([string(credentialsId: 'SPLUNK_HEC_TOKEN', variable: 'SPLUNK_TOKEN')]) {
+        dir("${env.WORKSPACE}") {
           sh '''#!/bin/bash
-            . ./minikube_docker_env.sh
-
-            REPORT_PATH="${REPORTS_DIR}/frontend-report.json"
-            PAYLOAD="/tmp/splunk_frontend_payload.json"
-
-            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \\
-              -v ${REPORTS_DIR}:/report aquasec/trivy image --format json -o /report/frontend-report.json ${FRONTEND_IMAGE}
-
-            jq -n --slurpfile report "$REPORT_PATH" \\
-              --arg sourcetype "trivy" --arg source "frontend-scan" --arg host "jenkins" \\
-              '{event: $report[0], sourcetype: $sourcetype, source: $source, host: $host}' > $PAYLOAD
-
-            curl -s -k -X POST "${SPLUNK_HEC_URL}" \\
-              -H "Authorization: Splunk ${SPLUNK_TOKEN}" \\
-              -H "Content-Type: application/json" \\
-              -d @$PAYLOAD
+            docker run --rm -v "$PWD":/project -w /project aquasec/trivy config ${BACKEND_PATH}
+            docker run --rm -v "$PWD":/project -w /project aquasec/trivy config ${FRONTEND_PATH}
+            docker run --rm -v "$PWD":/project -w /project aquasec/trivy config ${DATABASE_PATH}
           '''
         }
       }
     }
 
-    // (Keep the rest of your original stages unchanged)
+    stage('Scan Secrets in Project') {
+      steps {
+        dir("${env.WORKSPACE}") {
+          sh '''#!/bin/bash
+            docker run --rm -v "$PWD":/project -w /project aquasec/trivy fs . --scanners secret
+          '''
+        }
+      }
+    }
+
+    stage('Deploy Backend via Helm') {
+      steps {
+        sh '''#!/bin/bash
+          helm upgrade --install ${BACKEND_IMAGE} ${BACKEND_PATH} \\
+            --namespace ${BACKEND_IMAGE} --create-namespace \\
+            -f ${BACKEND_PATH}/values.yaml
+        '''
+      }
+    }
+
+    stage('Deploy Frontend via Helm') {
+      steps {
+        sh '''#!/bin/bash
+          helm upgrade --install ${FRONTEND_IMAGE} ${FRONTEND_PATH} \\
+            --namespace ${FRONTEND_IMAGE} --create-namespace \\
+            -f ${FRONTEND_PATH}/values.yaml
+        '''
+      }
+    }
+
+    stage('Deploy Database via Helm') {
+      steps {
+        sh '''#!/bin/bash
+          helm upgrade --install mt-database ${DATABASE_PATH} \\
+            --namespace mt-database --create-namespace \\
+            -f ${DATABASE_PATH}/values.yaml
+        '''
+      }
+    }
   }
 
   post {

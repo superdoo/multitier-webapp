@@ -12,3 +12,16 @@ curl -k http://192.168.49.2:31002/services/collector/event \
   -H "Authorization: Splunk ${4cd33076-078d-4112-bf8f-b3645046965d}" \
   -H "Content-Type: application/json" \
   -d @/tmp/splunk_payload.json
+
+
+
+
+
+
+
+
+
+curl -k -H "Authorization: Splunk 4cd33076-078d-4112-bf8f-b3645046965d" \
+     -H "Content-Type: application/json" \
+     -d '{"event":"This is a test from CLI-Hudi Doo","sourcetype":"trivy","source":"manual-test","host":"jenkins"}' \
+     http://192.168.49.2:31002/services/collector/event

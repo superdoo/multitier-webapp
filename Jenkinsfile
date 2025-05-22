@@ -9,6 +9,7 @@ pipeline {
     DATABASE_PATH = "helm/postgresql"
     KUBECONFIG = "${HOME}/.kube/config"
     SPLUNK_HEC_URL = "http://192.168.49.2:31002/services/collector/event"
+    REPORT_DIR = "/home/reports"
   }
 
   stages {
@@ -36,23 +37,28 @@ pipeline {
           sh '''#!/bin/bash
             . ./minikube_docker_env.sh
 
-            REPORT_PATH="/report/backend-report.json"
-            PAYLOAD="/tmp/splunk_backend_payload.json"
-
-            mkdir -p /report
+            mkdir -p ${REPORT_DIR}
+            BACKEND_REPORT="${REPORT_DIR}/backend-report.json"
+            BACKEND_PAYLOAD="/tmp/splunk_backend_payload.json"
 
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \\
-              -v $PWD:/report aquasec/trivy image --format json -o $REPORT_PATH ${BACKEND_IMAGE}
+              -v ${REPORT_DIR}:/reports aquasec/trivy image \\
+              --format json -o /reports/backend-report.json ${BACKEND_IMAGE}
 
-            # Create valid Splunk HEC JSON payload using jq
-            jq -n --slurpfile report $REPORT_PATH \\
+            echo "📄 Trivy backend scan result:"
+            cat $BACKEND_REPORT
+
+            jq -n --slurpfile report $BACKEND_REPORT \\
               --arg sourcetype "trivy" --arg source "backend-scan" --arg host "jenkins" \\
-              '{event: $report[0], sourcetype: $sourcetype, source: $source, host: $host}' > $PAYLOAD
+              '{event: $report[0], sourcetype: $sourcetype, source: $source, host: $host}' > $BACKEND_PAYLOAD
 
-            curl -s -k -X POST "${SPLUNK_HEC_URL}" \\
+            echo "📦 Sending to Splunk:"
+            cat $BACKEND_PAYLOAD
+
+            curl -v -k -X POST "${SPLUNK_HEC_URL}" \\
               -H "Authorization: Splunk ${SPLUNK_TOKEN}" \\
               -H "Content-Type: application/json" \\
-              -d @$PAYLOAD
+              -d @$BACKEND_PAYLOAD
           '''
         }
       }
@@ -73,23 +79,28 @@ pipeline {
           sh '''#!/bin/bash
             . ./minikube_docker_env.sh
 
-            REPORT_PATH="/report/frontend-report.json"
-            PAYLOAD="/tmp/splunk_frontend_payload.json"
-
-            mkdir -p /report
+            mkdir -p ${REPORT_DIR}
+            FRONTEND_REPORT="${REPORT_DIR}/frontend-report.json"
+            FRONTEND_PAYLOAD="/tmp/splunk_frontend_payload.json"
 
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \\
-              -v $PWD:/report aquasec/trivy image --format json -o $REPORT_PATH ${FRONTEND_IMAGE}
+              -v ${REPORT_DIR}:/reports aquasec/trivy image \\
+              --format json -o /reports/frontend-report.json ${FRONTEND_IMAGE}
 
-            # Create valid Splunk HEC JSON payload using jq
-            jq -n --slurpfile report $REPORT_PATH \\
+            echo "📄 Trivy frontend scan result:"
+            cat $FRONTEND_REPORT
+
+            jq -n --slurpfile report $FRONTEND_REPORT \\
               --arg sourcetype "trivy" --arg source "frontend-scan" --arg host "jenkins" \\
-              '{event: $report[0], sourcetype: $sourcetype, source: $source, host: $host}' > $PAYLOAD
+              '{event: $report[0], sourcetype: $sourcetype, source: $source, host: $host}' > $FRONTEND_PAYLOAD
 
-            curl -s -k -X POST "${SPLUNK_HEC_URL}" \\
+            echo "📦 Sending to Splunk:"
+            cat $FRONTEND_PAYLOAD
+
+            curl -v -k -X POST "${SPLUNK_HEC_URL}" \\
               -H "Authorization: Splunk ${SPLUNK_TOKEN}" \\
               -H "Content-Type: application/json" \\
-              -d @$PAYLOAD
+              -d @$FRONTEND_PAYLOAD
           '''
         }
       }

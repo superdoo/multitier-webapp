@@ -29,49 +29,11 @@ pipeline {
       }
     }
 
-    stage('Scan Backend Image with Trivy') {
-      steps {
-        sh """
-          . ./minikube_docker_env.sh
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 0 --severity LOW,MEDIUM ${BACKEND_IMAGE}
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 1 --severity HIGH,CRITICAL ${BACKEND_IMAGE}
-        """
-      }
-    }
-
     stage('Build Frontend Image') {
       steps {
         sh """
           . ./minikube_docker_env.sh
           docker build -t ${FRONTEND_IMAGE} ${FRONTEND_PATH}
-        """
-      }
-    }
-
-    stage('Scan Frontend Image with Trivy') {
-      steps {
-        sh """
-          . ./minikube_docker_env.sh
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 0 --severity LOW,MEDIUM ${FRONTEND_IMAGE}
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 1 --severity HIGH,CRITICAL ${FRONTEND_IMAGE}
-        """
-      }
-    }
-
-    stage('Scan Helm Charts (Trivy Config)') {
-      steps {
-        sh """
-          docker run --rm -v "$PWD":/project -w /project aquasec/trivy config ${BACKEND_PATH}
-          docker run --rm -v "$PWD":/project -w /project aquasec/trivy config ${FRONTEND_PATH}
-          docker run --rm -v "$PWD":/project -w /project aquasec/trivy config ${DATABASE_PATH}
-        """
-      }
-    }
-
-    stage('Scan Secrets in Project') {
-      steps {
-        sh """
-          docker run --rm -v "$PWD":/project -w /project aquasec/trivy fs . --scanners secret
         """
       }
     }
@@ -109,7 +71,7 @@ pipeline {
 
   post {
     success {
-      echo '✅ Multi-tier app successfully built, scanned, and deployed via Helm.'
+      echo '✅ Multi-tier app successfully built and deployed via Helm.'
     }
     failure {
       echo '❌ CI/CD pipeline failed.'

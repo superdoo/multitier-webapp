@@ -36,12 +36,17 @@ pipeline {
           sh '''#!/bin/bash
             set -eux
 
+            # Load Minikube docker environment variables
             . ./minikube_docker_env.sh
 
+            echo "[DEBUG] WORKSPACE=$WORKSPACE"
             REPORT_DIR="${WORKSPACE}/reports"
-            REPORT_PATH="$REPORT_DIR/backend-report.json"
-            PAYLOAD="/tmp/splunk_backend_payload.json"
+            echo "[DEBUG] REPORT_DIR=$REPORT_DIR"
 
+            echo "[DEBUG] Listing reports dir before scan:"
+            ls -la "$REPORT_DIR" || echo "[DEBUG] Reports directory does not exist yet"
+
+            # Create reports directory with permissions
             echo "[INFO] Creating report dir at: $REPORT_DIR"
             mkdir -p "$REPORT_DIR"
             chmod -R 777 "$REPORT_DIR"
@@ -51,9 +56,14 @@ pipeline {
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \\
               -v "$REPORT_DIR":/report aquasec/trivy image --format json -o /report/backend-report.json ${BACKEND_IMAGE}
 
+            echo "[DEBUG] Listing reports dir after scan:"
+            ls -la "$REPORT_DIR"
+
+            REPORT_PATH="$REPORT_DIR/backend-report.json"
             echo "[INFO] Report file contents:"
             cat "$REPORT_PATH" || echo "[ERROR] Report not found!"
 
+            PAYLOAD="/tmp/splunk_backend_payload.json"
             jq -n --slurpfile report "$REPORT_PATH" \\
               --arg sourcetype "trivy" --arg source "backend-scan" --arg host "jenkins" \\
               '{event: $report[0], sourcetype: $sourcetype, source: $source, host: $host}' > $PAYLOAD

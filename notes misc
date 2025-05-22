@@ -12,9 +12,14 @@ curl -k http://192.168.49.2:31002/services/collector/event \
   -H "Authorization: Splunk ${4cd33076-078d-4112-bf8f-b3645046965d}" \
   -H "Content-Type: application/json" \
   -d @/tmp/splunk_payload.json
+  
 
 
 
+
+
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+  -v "$REPORT_DIR":/report aquasec/trivy image --format json -o /report/backend-report.json ${mt-backend}
 
 
 

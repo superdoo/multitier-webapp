@@ -8,7 +8,6 @@ pipeline {
     FRONTEND_PATH = "helm/frontend"
     DATABASE_PATH = "helm/postgresql"
     KUBECONFIG = "${HOME}/.kube/config"
-    SPLUNK_HEC_URL = "http://192.168.49.2:31002/services/collector/event"
   }
 
   stages {
@@ -30,21 +29,13 @@ pipeline {
       }
     }
 
-    stage('Scan Backend Image with Trivy + Send to Splunk') {
+    stage('Scan Backend Image with Trivy') {
       steps {
-        withCredentials([string(credentialsId: 'SPLUNK_HEC_TOKEN', variable: 'SPLUNK_TOKEN')]) {
-          sh """
-            . ./minikube_docker_env.sh
-
-            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \\
-              -v \$PWD:/report aquasec/trivy image --format json -o /report/backend-report.json ${BACKEND_IMAGE}
-
-            curl -s -k -X POST "\${SPLUNK_HEC_URL}" \\
-              -H "Authorization: Splunk \$SPLUNK_TOKEN" \\
-              -H "Content-Type: application/json" \\
-              -d @<(echo '{"event":'\\$(cat /report/backend-report.json)', "sourcetype": "trivy", "source": "backend-scan", "host": "jenkins"}')
-          """
-        }
+        sh """
+          . ./minikube_docker_env.sh
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 0 --severity LOW,MEDIUM ${BACKEND_IMAGE}
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 0 --severity HIGH,CRITICAL ${BACKEND_IMAGE}
+        """
       }
     }
 
@@ -57,21 +48,13 @@ pipeline {
       }
     }
 
-    stage('Scan Frontend Image with Trivy + Send to Splunk') {
+    stage('Scan Frontend Image with Trivy') {
       steps {
-        withCredentials([string(credentialsId: 'SPLUNK_HEC_TOKEN', variable: 'SPLUNK_TOKEN')]) {
-          sh """
-            . ./minikube_docker_env.sh
-
-            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \\
-              -v \$PWD:/report aquasec/trivy image --format json -o /report/frontend-report.json ${FRONTEND_IMAGE}
-
-            curl -s -k -X POST "\${SPLUNK_HEC_URL}" \\
-              -H "Authorization: Splunk \$SPLUNK_TOKEN" \\
-              -H "Content-Type: application/json" \\
-              -d @<(echo '{"event":'\\$(cat /report/frontend-report.json)', "sourcetype": "trivy", "source": "frontend-scan", "host": "jenkins"}')
-          """
-        }
+        sh """
+          . ./minikube_docker_env.sh
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 0 --severity LOW,MEDIUM ${FRONTEND_IMAGE}
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 0 --severity HIGH,CRITICAL ${FRONTEND_IMAGE}
+        """
       }
     }
 
@@ -130,7 +113,7 @@ pipeline {
 
   post {
     success {
-      echo '✅ Multi-tier app successfully built, scanned, deployed, and logs sent to Splunk.'
+      echo '✅ Multi-tier app successfully built, scanned, and deployed via Helm.'
     }
     failure {
       echo '❌ CI/CD pipeline failed.'

@@ -32,7 +32,7 @@ pipeline {
 
     stage('Scan Backend Image with Trivy + Send to Splunk') {
       steps {
-        withCredentials([string(credentialsId: 'SPLUNK_HEC_TOKEN', variable: 'SPLUNK_TOKEN')]) {
+        withCredentials([string(credentialsId: '4cd33076-078d-4112-bf8f-b3645046965d', variable: 'SPLUNK_TOKEN')]) {
           sh """
             . ./minikube_docker_env.sh
 

@@ -34,25 +34,29 @@ pipeline {
 
 
     stage('Trivy Scan Backend') {
-    steps {
-        script {
-            // Create reports directory if it doesn't exist
-            sh 'mkdir -p reports'
+  steps {
+    script {
+      // Create reports and image-exports directories if they don't exist
+      sh 'mkdir -p reports image-exports'
 
-            // Run Trivy scan and output JSON file
-            sh """
-            docker run --rm \
-              -v /var/run/docker.sock:/var/run/docker.sock \
-              -v \$(pwd)/reports:/reports \
-              aquasec/trivy image \
-              --format json --severity HIGH,CRITICAL \
-              -o /reports/trivy-backend-highcrit.json mt-backend
-            """
+      // Save the backend image from Minikube Docker daemon to a tarball
+      sh """
+        . ./minikube_docker_env.sh
+        docker save -o image-exports/mt-backend.tar ${BACKEND_IMAGE}:latest
+      """
 
-            // Optional: List the contents of reports/ for confirmation
-            sh 'ls -lh reports'
-        }
+      // Run Trivy container to scan the tarball and output JSON report
+      sh """
+        docker run --rm \
+          -v \$(pwd)/image-exports:/images \
+          -v \$(pwd)/reports:/reports \
+          aquasec/trivy:latest image --input /images/mt-backend.tar --format json --severity HIGH,CRITICAL -o /reports/trivy-backend-highcrit.json
+      """
+
+      // Optional: List reports directory for confirmation
+      sh 'ls -lh reports'
     }
+  }
 }
 
 

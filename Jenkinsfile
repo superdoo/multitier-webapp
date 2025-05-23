@@ -58,9 +58,7 @@ pipeline {
 
     post {
         always {
-            node {
-                archiveArtifacts artifacts: 'reports/*.json', fingerprint: true
-            }
+            archiveArtifacts artifacts: 'reports/*.json', fingerprint: true
         }
     }
 }

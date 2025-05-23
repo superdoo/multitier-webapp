@@ -50,6 +50,8 @@ pipeline {
           -v /var/run/docker.sock:/var/run/docker.sock \
           -v \$PWD/reports:/reports \
           aquasec/trivy image --format json --severity HIGH,CRITICAL -o /reports/trivy-backend-highcrit.json ${BACKEND_IMAGE}
+     echo test > reports/debug.txt
+
       """
     }
   }

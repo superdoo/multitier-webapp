@@ -36,20 +36,23 @@ pipeline {
     stage('Trivy Scan Backend') {
     steps {
         script {
-            // Create reports directory if it doesn't exist
-            sh 'mkdir -p reports'
+            sh '''
+                # Point to Minikube's Docker daemon
+                eval $(minikube -p minikube docker-env)
 
-            // Run Trivy scan and output JSON file
-            sh """
-            docker run --rm \
-              -v /var/run/docker.sock:/var/run/docker.sock \
-              -v \$(pwd)/reports:/reports \
-              aquasec/trivy image \
-              --format json --severity HIGH,CRITICAL \
-              -o /reports/trivy-backend-highcrit.json mt-backend
-            """
+                # Make sure reports directory exists
+                mkdir -p reports
 
-            // Optional: List the contents of reports/ for confirmation
+                # Run Trivy scan against the image in Minikube's Docker
+                docker run --rm \
+                  -v /var/run/docker.sock:/var/run/docker.sock \
+                  -v $(pwd)/reports:/reports \
+                  aquasec/trivy image \
+                  --format json --severity HIGH,CRITICAL \
+                  -o /reports/trivy-backend-highcrit.json mt-backend
+            '''
+
+            // Optional: check if the report file exists
             sh 'ls -lh reports'
         }
     }

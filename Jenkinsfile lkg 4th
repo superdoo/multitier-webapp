@@ -159,65 +159,45 @@ stage('Scan Database Helm Chart (Trivy Config)') {
 
 
 
-
-
-
-
-
-
-
-
     stage('Send Trivy Logs to Splunk') {
-      steps {
-        withCredentials([string(credentialsId: 'SPLUNK_HEC_TOKEN', variable: 'SPLUNK_HEC_TOKEN')]) {
-          script {
-            sh '''
-              echo "Preparing and sending structured Splunk logs"
+  steps {
+    withCredentials([string(credentialsId: 'SPLUNK_HEC_TOKEN', variable: 'SPLUNK_HEC_TOKEN')]) {
+      script {
+        sh '''
+          echo "Preparing Splunk payloads"
 
-              for file in reports/trivy-*.json; do
-                echo "Processing $file"
+          # Backend
+          jq -Rs '{event: .}' < reports/trivy-backend-lowmed.json > reports/splunk-backend-lowmed.json
+          jq -Rs '{event: .}' < reports/trivy-backend-highcrit.json > reports/splunk-backend-highcrit.json
 
-                jq -c '.Results[]?.Vulnerabilities[]? | {
-                  event: {
-                    Target: .Target,
-                    VulnerabilityID: .VulnerabilityID,
-                    PkgName: .PkgName,
-                    InstalledVersion: .InstalledVersion,
-                    FixedVersion: .FixedVersion,
-                    Severity: .Severity,
-                    Title: .Title,
-                    Description: .Description
-                  }
-                }' "$file" > reports/tmp-splunk-events.json || true
+          # Frontend
+          jq -Rs '{event: .}' < reports/trivy-frontend-lowmed.json > reports/splunk-frontend-lowmed.json
+          jq -Rs '{event: .}' < reports/trivy-frontend-highcrit.json > reports/splunk-frontend-highcrit.json
 
-                if [ -s reports/tmp-splunk-events.json ]; then
-                  echo "Sending logs from $file to Splunk"
-                  while IFS= read -r line; do
-                    curl -k http://192.168.49.2:31002/services/collector \
-                      -H "Authorization: Splunk $SPLUNK_HEC_TOKEN" \
-                      -H "Content-Type: application/json" \
-                      --data-binary "$line"
-                  done < reports/tmp-splunk-events.json
-                else
-                  echo "No vulnerabilities to send from $file"
-                fi
-              done
-            '''
-          }
-        }
+          # Config scans
+          jq -Rs '{event: .}' < reports/trivy-config-backend.json > reports/splunk-config-backend.json
+          jq -Rs '{event: .}' < reports/trivy-config-frontend.json > reports/splunk-config-frontend.json
+          jq -Rs '{event: .}' < reports/trivy-config-database.json > reports/splunk-config-database.json
+          echo "Preparing Splunk payload for database config report"
+          jq -Rs '{event: .}' < reports/trivy-db-config.json > reports/splunk-db-config.json
+
+          # Secrets scan
+          jq -Rs '{event: .}' < reports/trivy-secrets.json > reports/splunk-secrets.json
+
+          echo "Sending all reports to Splunk"
+
+          for file in reports/splunk-*.json; do
+            echo "Sending $file"
+            curl -k http://192.168.49.2:31002/services/collector \\
+              -H "Authorization: Splunk $SPLUNK_HEC_TOKEN" \\
+              -H "Content-Type: application/json" \\
+              --data-binary @$file
+          done
+        '''
       }
     }
-
-
-
-
-
-
-
-
-
-
-
+  }
+}
 
     stage('Deploy Backend via Helm') {
       steps {

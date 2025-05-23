@@ -87,33 +87,33 @@ pipeline {
 
 
 
-stage('Send Trivy Logs to Splunk') {
-  steps {
-    withCredentials([string(credentialsId: 'SPLUNK_HEC_TOKEN', variable: 'SPLUNK_HEC_TOKEN')]) {
-      script {
-        sh '''
-          echo "Preparing Splunk payload for low/med report"
-          jq -c --argfile data reports/trivy-backend-lowmed.json '{event: $data}' > reports/splunk-lowmed.json
+    stage('Send Trivy Logs to Splunk') {
+      steps {
+        withCredentials([string(credentialsId: 'SPLUNK_HEC_TOKEN', variable: 'SPLUNK_HEC_TOKEN')]) {
+          script {
+            sh '''
+              echo "Preparing Splunk payload for low/med report"
+              jq -c --argfile data reports/trivy-backend-lowmed.json '{event: $data}' > reports/splunk-lowmed.json
 
-          echo "Preparing Splunk payload for high/crit report"
-          jq -c --argfile data reports/trivy-backend-highcrit.json '{event: $data}' > reports/splunk-highcrit.json
+              echo "Preparing Splunk payload for high/crit report"
+              jq -c --argfile data reports/trivy-backend-highcrit.json '{event: $data}' > reports/splunk-highcrit.json
 
-          echo "Sending low/med report to Splunk"
-          curl -k http://192.168.49.2:31002/services/collector \\
-            -H "Authorization: Splunk $SPLUNK_HEC_TOKEN" \\
-            -H "Content-Type: application/json" \\
-            --data-binary @reports/splunk-lowmed.json
+              echo "Sending low/med report to Splunk"
+              curl -k http://192.168.49.2:31002/services/collector \\
+                -H "Authorization: Splunk $SPLUNK_HEC_TOKEN" \\
+                -H "Content-Type: application/json" \\
+                --data-binary @reports/splunk-lowmed.json
 
-          echo "Sending high/crit report to Splunk"
-          curl -k http://192.168.49.2:31002/services/collector \\
-            -H "Authorization: Splunk $SPLUNK_HEC_TOKEN" \\
-            -H "Content-Type: application/json" \\
-            --data-binary @reports/splunk-highcrit.json
-        '''
+              echo "Sending high/crit report to Splunk"
+              curl -k http://192.168.49.2:31002/services/collector \\
+                -H "Authorization: Splunk $SPLUNK_HEC_TOKEN" \\
+                -H "Content-Type: application/json" \\
+                --data-binary @reports/splunk-highcrit.json
+            '''
+          }
+        }
       }
     }
-  }
-}
 
 
 

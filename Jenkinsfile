@@ -33,28 +33,28 @@ pipeline {
 
 
 
-    stage('Scan Backend Image with Trivy') {
+    stage('Trivy Scan Backend') {
     steps {
-      sh """
-        mkdir -p reports
-        . ./minikube_docker_env.sh
+        script {
+            // Create reports directory if it doesn't exist
+            sh 'mkdir -p reports'
 
-        # LOW/MEDIUM report
-        docker run --rm \
-          -v /var/run/docker.sock:/var/run/docker.sock \
-          -v \$PWD/reports:/reports \
-          aquasec/trivy image --format json --severity LOW,MEDIUM -o /reports/trivy-backend-lowmed.json ${BACKEND_IMAGE}
+            // Run Trivy scan and output JSON file
+            sh """
+            docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v \$(pwd)/reports:/reports \
+              aquasec/trivy image \
+              --format json --severity HIGH,CRITICAL \
+              -o /reports/trivy-backend-highcrit.json mt-backend
+            """
 
-        # HIGH/CRITICAL report
-        docker run --rm \
-          -v /var/run/docker.sock:/var/run/docker.sock \
-          -v \$PWD/reports:/reports \
-          aquasec/trivy image --format json --severity HIGH,CRITICAL -o /reports/trivy-backend-highcrit.json ${BACKEND_IMAGE}
-     echo test > reports/debug.txt
-
-      """
+            // Optional: List the contents of reports/ for confirmation
+            sh 'ls -lh reports'
+        }
     }
-  }
+}
+
 
 
 

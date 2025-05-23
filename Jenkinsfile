@@ -29,15 +29,31 @@ pipeline {
       }
     }
 
+
+
+
+
     stage('Scan Backend Image with Trivy') {
-      steps {
-        sh """
-          . ./minikube_docker_env.sh
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 0 --severity LOW,MEDIUM ${BACKEND_IMAGE}
-          
-        """
-      }
+    steps {
+      sh """
+        mkdir -p reports
+        . ./minikube_docker_env.sh
+
+        # LOW/MEDIUM report
+        docker run --rm \
+          -v /var/run/docker.sock:/var/run/docker.sock \
+          -v \$PWD/reports:/reports \
+          aquasec/trivy image --format json --severity LOW,MEDIUM -o /reports/trivy-backend-lowmed.json ${BACKEND_IMAGE}
+
+        # HIGH/CRITICAL report
+        docker run --rm \
+          -v /var/run/docker.sock:/var/run/docker.sock \
+          -v \$PWD/reports:/reports \
+          aquasec/trivy image --format json --severity HIGH,CRITICAL -o /reports/trivy-backend-highcrit.json ${BACKEND_IMAGE}
+      """
     }
+  }
+
 
 
 

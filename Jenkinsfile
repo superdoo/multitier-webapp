@@ -136,6 +136,78 @@ pipeline {
 
 
 
+    stage('Scan Secrets in Project') {
+      steps {
+        script {
+          sh 'mkdir -p reports'
+
+          sh """
+            docker run --rm \\
+              -v "\$PWD":/project \\
+              -w /project \\
+              aquasec/trivy fs /project \\
+              --scanners secret \\
+              --format json \\
+              -o reports/trivy-secrets.json
+          """
+        }
+      }
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    // stage('Trivy Scan Database') {
+    //   steps {
+    //     script {
+    //       sh 'mkdir -p reports image-exports'
+
+    //       sh """
+    //         . ./minikube_docker_env.sh
+    //         docker save -o image-exports/mt-database.tar mt-database:latest
+    //       """
+
+    //       // High and Critical severity scan
+    //       sh """
+    //         docker run --rm \
+    //           -v \$(pwd)/image-exports:/images \
+    //           -v \$(pwd)/reports:/reports \
+    //           aquasec/trivy:latest image --input /images/mt-database.tar --format json --severity HIGH,CRITICAL -o /reports/trivy-database-highcrit.json
+    //       """
+
+    //       // Low and Medium severity scan
+    //       sh """
+    //         docker run --rm \
+    //           -v \$(pwd)/image-exports:/images \
+    //           -v \$(pwd)/reports:/reports \
+    //           aquasec/trivy:latest image --input /images/mt-database.tar --format json --severity LOW,MEDIUM -o /reports/trivy-database-lowmed.json
+    //       """
+
+    //       sh 'ls -lh reports'
+    //     }
+    //   }
+    // }
+
+
+
+    
+
+
+
 
 
 
@@ -159,6 +231,8 @@ pipeline {
           jq -Rs '{event: .}' < reports/trivy-config-backend.json > reports/splunk-config-backend.json
           jq -Rs '{event: .}' < reports/trivy-config-frontend.json > reports/splunk-config-frontend.json
           jq -Rs '{event: .}' < reports/trivy-config-database.json > reports/splunk-config-database.json
+          # Secrets scan
+          jq -Rs '{event: .}' < reports/trivy-secrets.json > reports/splunk-secrets.json
 
           echo "Sending all reports to Splunk"
 

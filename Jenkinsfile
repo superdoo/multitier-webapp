@@ -6,14 +6,13 @@ pipeline {
         BACKEND_IMAGE = "mt-backend:${IMAGE_TAG}"
         FRONTEND_IMAGE = "mt-frontend:${IMAGE_TAG}"
         REPORTS_DIR = "${WORKSPACE}/reports"
-        SPLUNK_HEC_TOKEN = credentials('splunk-hec-token')
         SPLUNK_HEC_URL = 'http://localhost:31001/services/collector'
     }
 
     stages {
         stage('Clone Repo') {
             steps {
-                git url: 'https://github.com/your-repo/multi-tier-web-app.git', branch: 'main'
+                git url: 'https://github.com/superdoo/multitier-webapp.git', branch: 'main', credentialsId: 'new_github_creds'
             }
         }
 
@@ -45,19 +44,23 @@ pipeline {
 
         stage('Send Backend Report to Splunk') {
             steps {
-                sh '''
-                curl -k -s -o /dev/null -w "%{http_code}\\n" -X POST ${SPLUNK_HEC_URL} \
-                -H "Authorization: Splunk ${SPLUNK_HEC_TOKEN}" \
-                -H "Content-Type: application/json" \
-                -d @${REPORTS_DIR}/backend_trivy_report.json
-                '''
+                withCredentials([string(credentialsId: 'splunk-hec-token', variable: 'SPLUNK_HEC_TOKEN')]) {
+                    sh '''
+                    curl -k -s -o /dev/null -w "%{http_code}\\n" -X POST ${SPLUNK_HEC_URL} \
+                    -H "Authorization: Splunk ${SPLUNK_HEC_TOKEN}" \
+                    -H "Content-Type: application/json" \
+                    -d @${REPORTS_DIR}/backend_trivy_report.json
+                    '''
+                }
             }
         }
     }
 
     post {
         always {
-            archiveArtifacts artifacts: 'reports/*.json', fingerprint: true
+            node {
+                archiveArtifacts artifacts: 'reports/*.json', fingerprint: true
+            }
         }
     }
 }

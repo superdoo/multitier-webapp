@@ -90,51 +90,31 @@ pipeline {
 stage('Send Trivy Logs to Splunk') {
   steps {
     withCredentials([string(credentialsId: 'SPLUNK_HEC_TOKEN', variable: 'SPLUNK_HEC_TOKEN')]) {
-      sh """
-        echo "=== Trivy Report Files Location Check ==="
-        echo "Expected file: reports/trivy-backend-lowmed.json"
-        echo "Expected file: reports/trivy-backend-highcrit.json"
-        echo "Current directory:"
-        pwd
-        echo "Listing workspace contents:"
-        ls -lh
-        echo "Listing reports/ directory contents:"
-        ls -lh reports/
+      script {
+        sh '''
+          echo "Preparing Splunk payload for low/med report"
+          jq -c --argfile data reports/trivy-backend-lowmed.json '{event: $data}' > reports/splunk-lowmed.json
 
-        if [ ! -f "reports/trivy-backend-lowmed.json" ]; then
-          echo "ERROR: reports/trivy-backend-lowmed.json not found!"
-          exit 1
-        fi
+          echo "Preparing Splunk payload for high/crit report"
+          jq -c --argfile data reports/trivy-backend-highcrit.json '{event: $data}' > reports/splunk-highcrit.json
 
-        if [ ! -f "reports/trivy-backend-highcrit.json" ]; then
-          echo "ERROR: reports/trivy-backend-highcrit.json not found!"
-          exit 1
-        fi
+          echo "Sending low/med report to Splunk"
+          curl -k http://192.168.49.2:31002/services/collector \\
+            -H "Authorization: Splunk $SPLUNK_HEC_TOKEN" \\
+            -H "Content-Type: application/json" \\
+            --data-binary @reports/splunk-lowmed.json
 
-        echo "=== Displaying first 10 lines of each file ==="
-        echo "--- reports/trivy-backend-lowmed.json ---"
-        head -n 10 reports/trivy-backend-lowmed.json
-
-        echo "--- reports/trivy-backend-highcrit.json ---"
-        head -n 10 reports/trivy-backend-highcrit.json
-
-        echo "=== Sending to Splunk ==="
-
-        # Low/Medium
-        curl -k http://192.168.49.2:31002/services/collector \\
-          -H "Authorization: Splunk $SPLUNK_HEC_TOKEN" \\
-          -H "Content-Type: application/json" \\
-          --data-binary "@reports/trivy-backend-lowmed.json"
-
-        # High/Critical
-        curl -k http://192.168.49.2:31002/services/collector \\
-          -H "Authorization: Splunk $SPLUNK_HEC_TOKEN" \\
-          -H "Content-Type: application/json" \\
-          --data-binary "@reports/trivy-backend-highcrit.json"
-      """
+          echo "Sending high/crit report to Splunk"
+          curl -k http://192.168.49.2:31002/services/collector \\
+            -H "Authorization: Splunk $SPLUNK_HEC_TOKEN" \\
+            -H "Content-Type: application/json" \\
+            --data-binary @reports/splunk-highcrit.json
+        '''
+      }
     }
   }
 }
+
 
 
 

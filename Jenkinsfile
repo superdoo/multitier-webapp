@@ -109,17 +109,6 @@ pipeline {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
     stage('Send Trivy Logs to Splunk') {
       steps {
         withCredentials([string(credentialsId: 'SPLUNK_HEC_TOKEN', variable: 'SPLUNK_HEC_TOKEN')]) {
@@ -162,6 +151,40 @@ pipeline {
 
 
 
+
+
+
+
+
+
+
+
+
+
+    stage('Scan Helm Charts (Trivy Config)') {
+      steps {
+        script {
+          sh 'mkdir -p reports'
+
+          def charts = [
+            [name: "backend", path: "${BACKEND_PATH}"],
+            [name: "frontend", path: "${FRONTEND_PATH}"],
+            [name: "database", path: "${DATABASE_PATH}"]
+          ]
+
+          charts.each { chart ->
+            sh """
+              docker run --rm \\
+                -v "\$PWD":/project \\
+                -w /project \\
+                aquasec/trivy config ${chart.path} \\
+                --format json \\
+                -o reports/trivy-config-${chart.name}.json
+            """
+          }
+        }
+      }
+    }
 
 
 

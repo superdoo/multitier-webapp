@@ -44,7 +44,7 @@ pipeline {
 
     stage('Send Trivy Logs to Splunk') {
       steps {
-        withCredentials([string(credentialsId: 'splunk-hec-token', variable: 'SPLUNK_HEC_TOKEN')]) {
+        withCredentials([string(credentialsId: 'SPLUNK_HEC_TOKEN', variable: 'SPLUNK_HEC_TOKEN')]) {
           sh """
             # Sending Low/Medium severity scan results to Splunk
             curl -k http://192.168.49.2:31002/services/collector \

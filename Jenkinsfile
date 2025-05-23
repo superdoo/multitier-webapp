@@ -109,58 +109,6 @@ pipeline {
 
 
 
-    stage('Send Trivy Logs to Splunk') {
-      steps {
-        withCredentials([string(credentialsId: 'SPLUNK_HEC_TOKEN', variable: 'SPLUNK_HEC_TOKEN')]) {
-          script {
-            sh '''
-              echo "Preparing Splunk payloads for Trivy scan reports"
-
-              # Backend low/med
-              echo "Preparing backend low/med"
-              jq -Rs '{event: .}' < reports/trivy-backend-lowmed.json > reports/splunk-backend-lowmed.json
-
-              # Backend high/crit
-              echo "Preparing backend high/crit"
-              jq -Rs '{event: .}' < reports/trivy-backend-highcrit.json > reports/splunk-backend-highcrit.json
-
-              # Frontend low/med
-              echo "Preparing frontend low/med"
-              jq -Rs '{event: .}' < reports/trivy-frontend-lowmed.json > reports/splunk-frontend-lowmed.json
-
-              # Frontend high/crit
-              echo "Preparing frontend high/crit"
-              jq -Rs '{event: .}' < reports/trivy-frontend-highcrit.json > reports/splunk-frontend-highcrit.json
-
-              echo "Sending Trivy scan reports to Splunk"
-
-              for report in backend-lowmed backend-highcrit frontend-lowmed frontend-highcrit; do
-                echo "Sending $report to Splunk"
-                curl -k http://192.168.49.2:31002/services/collector \\
-                  -H "Authorization: Splunk $SPLUNK_HEC_TOKEN" \\
-                  -H "Content-Type: application/json" \\
-                  --data-binary @reports/splunk-$report.json
-              done
-            '''
-          }
-        }
-      }
-    }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     stage('Scan Helm Charts (Trivy Config)') {
       steps {
         script {
@@ -185,6 +133,48 @@ pipeline {
         }
       }
     }
+
+
+
+
+
+
+
+    stage('Send Trivy Logs to Splunk') {
+  steps {
+    withCredentials([string(credentialsId: 'SPLUNK_HEC_TOKEN', variable: 'SPLUNK_HEC_TOKEN')]) {
+      script {
+        sh '''
+          echo "Preparing Splunk payloads"
+
+          # Backend
+          jq -Rs '{event: .}' < reports/trivy-backend-lowmed.json > reports/splunk-backend-lowmed.json
+          jq -Rs '{event: .}' < reports/trivy-backend-highcrit.json > reports/splunk-backend-highcrit.json
+
+          # Frontend
+          jq -Rs '{event: .}' < reports/trivy-frontend-lowmed.json > reports/splunk-frontend-lowmed.json
+          jq -Rs '{event: .}' < reports/trivy-frontend-highcrit.json > reports/splunk-frontend-highcrit.json
+
+          # Config scans
+          jq -Rs '{event: .}' < reports/trivy-config-backend.json > reports/splunk-config-backend.json
+          jq -Rs '{event: .}' < reports/trivy-config-frontend.json > reports/splunk-config-frontend.json
+          jq -Rs '{event: .}' < reports/trivy-config-database.json > reports/splunk-config-database.json
+
+          echo "Sending all reports to Splunk"
+
+          for file in reports/splunk-*.json; do
+            echo "Sending $file"
+            curl -k http://192.168.49.2:31002/services/collector \\
+              -H "Authorization: Splunk $SPLUNK_HEC_TOKEN" \\
+              -H "Content-Type: application/json" \\
+              --data-binary @$file
+          done
+        '''
+      }
+    }
+  }
+}
+
 
 
 

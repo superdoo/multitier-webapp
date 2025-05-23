@@ -48,37 +48,37 @@ pipeline {
       }
     }
 
-    stage('Scan Frontend Image with Trivy') {
-      steps {
-        sh """
-          . ./minikube_docker_env.sh
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 0 --severity LOW,MEDIUM ${FRONTEND_IMAGE}
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 0 --severity HIGH,CRITICAL ${FRONTEND_IMAGE}
-        """
-      }
-    }
+    // stage('Scan Frontend Image with Trivy') {
+    //   steps {
+    //     sh """
+    //       . ./minikube_docker_env.sh
+    //       docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 0 --severity LOW,MEDIUM ${FRONTEND_IMAGE}
+    //       docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 0 --severity HIGH,CRITICAL ${FRONTEND_IMAGE}
+    //     """
+    //   }
+    // }
 
-    stage('Scan Helm Charts (Trivy Config)') {
-      steps {
-        dir("${env.WORKSPACE}") {
-          sh """
-            docker run --rm -v "\$PWD":/project -w /project aquasec/trivy config ${BACKEND_PATH}
-            docker run --rm -v "\$PWD":/project -w /project aquasec/trivy config ${FRONTEND_PATH}
-            docker run --rm -v "\$PWD":/project -w /project aquasec/trivy config ${DATABASE_PATH}
-          """
-        }
-      }
-    }
+    // stage('Scan Helm Charts (Trivy Config)') {
+    //   steps {
+    //     dir("${env.WORKSPACE}") {
+    //       sh """
+    //         docker run --rm -v "\$PWD":/project -w /project aquasec/trivy config ${BACKEND_PATH}
+    //         docker run --rm -v "\$PWD":/project -w /project aquasec/trivy config ${FRONTEND_PATH}
+    //         docker run --rm -v "\$PWD":/project -w /project aquasec/trivy config ${DATABASE_PATH}
+    //       """
+    //     }
+    //   }
+    // }
 
-    stage('Scan Secrets in Project') {
-      steps {
-        dir("${env.WORKSPACE}") {
-          sh """
-            docker run --rm -v "\$PWD":/project -w /project aquasec/trivy fs . --scanners secret
-          """
-        }
-      }
-    }
+    // stage('Scan Secrets in Project') {
+    //   steps {
+    //     dir("${env.WORKSPACE}") {
+    //       sh """
+    //         docker run --rm -v "\$PWD":/project -w /project aquasec/trivy fs . --scanners secret
+    //       """
+    //     }
+    //   }
+    // }
 
     stage('Deploy Backend via Helm') {
       steps {

@@ -29,10 +29,6 @@ pipeline {
       }
     }
 
-
-
-
-
     stage('Trivy Scan Backend') {
   steps {
     script {
@@ -63,27 +59,6 @@ pipeline {
     }
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -118,33 +93,6 @@ pipeline {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     stage('Build Frontend Image') {
       steps {
         sh """
@@ -154,37 +102,74 @@ pipeline {
       }
     }
 
-    // stage('Scan Frontend Image with Trivy') {
-    //   steps {
-    //     sh """
-    //       . ./minikube_docker_env.sh
-    //       docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 0 --severity LOW,MEDIUM ${FRONTEND_IMAGE}
-    //       docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 0 --severity HIGH,CRITICAL ${FRONTEND_IMAGE}
-    //     """
-    //   }
-    // }
 
-    // stage('Scan Helm Charts (Trivy Config)') {
-    //   steps {
-    //     dir("${env.WORKSPACE}") {
-    //       sh """
-    //         docker run --rm -v "\$PWD":/project -w /project aquasec/trivy config ${BACKEND_PATH}
-    //         docker run --rm -v "\$PWD":/project -w /project aquasec/trivy config ${FRONTEND_PATH}
-    //         docker run --rm -v "\$PWD":/project -w /project aquasec/trivy config ${DATABASE_PATH}
-    //       """
-    //     }
-    //   }
-    // }
 
-    // stage('Scan Secrets in Project') {
-    //   steps {
-    //     dir("${env.WORKSPACE}") {
-    //       sh """
-    //         docker run --rm -v "\$PWD":/project -w /project aquasec/trivy fs . --scanners secret
-    //       """
-    //     }
-    //   }
-    // }
+stage('Trivy Scan Frontend') {
+  steps {
+    script {
+      sh 'mkdir -p reports image-exports'
+
+      sh """
+        . ./minikube_docker_env.sh
+        docker save -o image-exports/mt-frontend.tar ${FRONTEND_IMAGE}:latest
+      """
+
+      // High and Critical severity scan
+      sh """
+        docker run --rm \
+          -v \$(pwd)/image-exports:/images \
+          -v \$(pwd)/reports:/reports \
+          aquasec/trivy:latest image --input /images/mt-frontend.tar --format json --severity HIGH,CRITICAL -o /reports/trivy-frontend-highcrit.json
+      """
+
+      // Low and Medium severity scan
+      sh """
+        docker run --rm \
+          -v \$(pwd)/image-exports:/images \
+          -v \$(pwd)/reports:/reports \
+          aquasec/trivy:latest image --input /images/mt-frontend.tar --format json --severity LOW,MEDIUM -o /reports/trivy-frontend-lowmed.json
+      """
+
+      sh 'ls -lh reports'
+    }
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     stage('Deploy Backend via Helm') {
       steps {

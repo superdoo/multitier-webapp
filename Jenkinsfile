@@ -42,26 +42,68 @@ pipeline {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     stage('Send Trivy Logs to Splunk') {
       steps {
         withCredentials([string(credentialsId: 'SPLUNK_HEC_TOKEN', variable: 'SPLUNK_HEC_TOKEN')]) {
           sh """
-            # Sending Low/Medium severity scan results to Splunk
-            curl -k http://192.168.49.2:31002/services/collector \
-              -H "Authorization: Splunk $SPLUNK_HEC_TOKEN" \
-              -H "Content-Type: application/json" \
+            echo "=== Trivy Report Files Location Check ==="
+            echo "Expected file: trivy-backend-lowmed.json"
+            echo "Expected file: trivy-backend-highcrit.json"
+            echo "Current directory:"
+            pwd
+            echo "Listing contents:"
+            ls -lh
+
+            if [ ! -f "trivy-backend-lowmed.json" ]; then
+              echo "ERROR: trivy-backend-lowmed.json not found!"
+              exit 1
+            fi
+
+            if [ ! -f "trivy-backend-highcrit.json" ]; then
+              echo "ERROR: trivy-backend-highcrit.json not found!"
+              exit 1
+            fi
+
+            echo "=== Displaying first 10 lines of each file ==="
+            echo "--- trivy-backend-lowmed.json ---"
+            head -n 10 trivy-backend-lowmed.json
+
+            echo "--- trivy-backend-highcrit.json ---"
+            head -n 10 trivy-backend-highcrit.json
+
+            echo "=== Sending to Splunk ==="
+
+            # Low/Medium
+            curl -k http://192.168.49.2:31002/services/collector \\
+              -H "Authorization: Splunk $SPLUNK_HEC_TOKEN" \\
+              -H "Content-Type: application/json" \\
               --data-binary "@trivy-backend-lowmed.json"
 
-            # Sending High/Critical severity scan results to Splunk
-            curl -k http://192.168.49.2:31002/services/collector \
-              -H "Authorization: Splunk $SPLUNK_HEC_TOKEN" \
-              -H "Content-Type: application/json" \
+            # High/Critical
+            curl -k http://192.168.49.2:31002/services/collector \\
+              -H "Authorization: Splunk $SPLUNK_HEC_TOKEN" \\
+              -H "Content-Type: application/json" \\
               --data-binary "@trivy-backend-highcrit.json"
           """
         }
       }
     }
-
 
 
 

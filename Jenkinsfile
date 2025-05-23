@@ -61,35 +61,7 @@ pipeline {
 }
 
 
-
-    stage('Send Trivy Logs to Splunk') {
-      steps {
-        withCredentials([string(credentialsId: 'SPLUNK_HEC_TOKEN', variable: 'SPLUNK_HEC_TOKEN')]) {
-          script {
-            sh '''
-                echo "Preparing Splunk payload for low/med report"
-                jq -Rs '{event: .}' < reports/trivy-backend-lowmed.json > reports/splunk-lowmed.json
-
-                echo "Preparing Splunk payload for high/crit report"
-                jq -Rs '{event: .}' < reports/trivy-backend-highcrit.json > reports/splunk-highcrit.json
-
-                echo "Sending low/med report to Splunk"
-                curl -k http://192.168.49.2:31002/services/collector \\
-                  -H "Authorization: Splunk $SPLUNK_HEC_TOKEN" \\
-                  -H "Content-Type: application/json" \\
-                  --data-binary @reports/splunk-lowmed.json
-
-                echo "Sending high/crit report to Splunk"
-                curl -k http://192.168.49.2:31002/services/collector \\
-                  -H "Authorization: Splunk $SPLUNK_HEC_TOKEN" \\
-                  -H "Content-Type: application/json" \\
-                  --data-binary @reports/splunk-highcrit.json
-              '''
-
-          }
-        }
-      }
-    }
+ 
 
 
 
@@ -104,36 +76,104 @@ pipeline {
 
 
 
-stage('Trivy Scan Frontend') {
-  steps {
-    script {
-      sh 'mkdir -p reports image-exports'
+    stage('Trivy Scan Frontend') {
+      steps {
+        script {
+          sh 'mkdir -p reports image-exports'
 
-      sh """
-        . ./minikube_docker_env.sh
-        docker save -o image-exports/mt-frontend.tar ${FRONTEND_IMAGE}:latest
-      """
+          sh """
+            . ./minikube_docker_env.sh
+            docker save -o image-exports/mt-frontend.tar ${FRONTEND_IMAGE}:latest
+          """
 
-      // High and Critical severity scan
-      sh """
-        docker run --rm \
-          -v \$(pwd)/image-exports:/images \
-          -v \$(pwd)/reports:/reports \
-          aquasec/trivy:latest image --input /images/mt-frontend.tar --format json --severity HIGH,CRITICAL -o /reports/trivy-frontend-highcrit.json
-      """
+          // High and Critical severity scan
+          sh """
+            docker run --rm \
+              -v \$(pwd)/image-exports:/images \
+              -v \$(pwd)/reports:/reports \
+              aquasec/trivy:latest image --input /images/mt-frontend.tar --format json --severity HIGH,CRITICAL -o /reports/trivy-frontend-highcrit.json
+          """
 
-      // Low and Medium severity scan
-      sh """
-        docker run --rm \
-          -v \$(pwd)/image-exports:/images \
-          -v \$(pwd)/reports:/reports \
-          aquasec/trivy:latest image --input /images/mt-frontend.tar --format json --severity LOW,MEDIUM -o /reports/trivy-frontend-lowmed.json
-      """
+          // Low and Medium severity scan
+          sh """
+            docker run --rm \
+              -v \$(pwd)/image-exports:/images \
+              -v \$(pwd)/reports:/reports \
+              aquasec/trivy:latest image --input /images/mt-frontend.tar --format json --severity LOW,MEDIUM -o /reports/trivy-frontend-lowmed.json
+          """
 
-      sh 'ls -lh reports'
+          sh 'ls -lh reports'
+        }
+      }
     }
-  }
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    stage('Send Trivy Logs to Splunk') {
+      steps {
+        withCredentials([string(credentialsId: 'SPLUNK_HEC_TOKEN', variable: 'SPLUNK_HEC_TOKEN')]) {
+          script {
+            sh '''
+              echo "Preparing Splunk payloads for Trivy scan reports"
+
+              # Backend low/med
+              echo "Preparing backend low/med"
+              jq -Rs '{event: .}' < reports/trivy-backend-lowmed.json > reports/splunk-backend-lowmed.json
+
+              # Backend high/crit
+              echo "Preparing backend high/crit"
+              jq -Rs '{event: .}' < reports/trivy-backend-highcrit.json > reports/splunk-backend-highcrit.json
+
+              # Frontend low/med
+              echo "Preparing frontend low/med"
+              jq -Rs '{event: .}' < reports/trivy-frontend-lowmed.json > reports/splunk-frontend-lowmed.json
+
+              # Frontend high/crit
+              echo "Preparing frontend high/crit"
+              jq -Rs '{event: .}' < reports/trivy-frontend-highcrit.json > reports/splunk-frontend-highcrit.json
+
+              echo "Sending Trivy scan reports to Splunk"
+
+              for report in backend-lowmed backend-highcrit frontend-lowmed frontend-highcrit; do
+                echo "Sending $report to Splunk"
+                curl -k http://192.168.49.2:31002/services/collector \\
+                  -H "Authorization: Splunk $SPLUNK_HEC_TOKEN" \\
+                  -H "Content-Type: application/json" \\
+                  --data-binary @reports/splunk-$report.json
+              done
+            '''
+          }
+        }
+      }
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

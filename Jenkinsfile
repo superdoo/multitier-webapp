@@ -22,291 +22,175 @@ pipeline {
 
     stage('Build Backend Image') {
       steps {
-        sh """
+        sh '''
+          echo "\n==== Building Backend Docker Image ===="
           . ./minikube_docker_env.sh
           docker build -t ${BACKEND_IMAGE} ${BACKEND_PATH}
-        """
+        '''
       }
     }
 
     stage('Trivy Scan Backend') {
-  steps {
-    script {
-      sh 'mkdir -p reports image-exports'
-
-      sh """
-        . ./minikube_docker_env.sh
-        docker save -o image-exports/mt-backend.tar ${BACKEND_IMAGE}:latest
-      """
-
-      // High and Critical severity scan
-      sh """
-        docker run --rm \
-          -v \$(pwd)/image-exports:/images \
-          -v \$(pwd)/reports:/reports \
-          aquasec/trivy:latest image --input /images/mt-backend.tar --format json --severity HIGH,CRITICAL -o /reports/trivy-backend-highcrit.json
-      """
-
-      // Low and Medium severity scan
-      sh """
-        docker run --rm \
-          -v \$(pwd)/image-exports:/images \
-          -v \$(pwd)/reports:/reports \
-          aquasec/trivy:latest image --input /images/mt-backend.tar --format json --severity LOW,MEDIUM -o /reports/trivy-backend-lowmed.json
-      """
-
-      sh 'ls -lh reports'
-    }
-  }
-}
-
-
- 
-
-
-
-    stage('Build Frontend Image') {
-      steps {
-        sh """
-          . ./minikube_docker_env.sh
-          docker build -t ${FRONTEND_IMAGE} ${FRONTEND_PATH}
-        """
-      }
-    }
-
-
-
-    stage('Trivy Scan Frontend') {
       steps {
         script {
-          sh 'mkdir -p reports image-exports'
+          sh 'mkdir -p reports image-exports logs'
 
-          sh """
+          sh '''
+            echo "\n==== Saving Backend Image ===="
             . ./minikube_docker_env.sh
-            docker save -o image-exports/mt-frontend.tar ${FRONTEND_IMAGE}:latest
-          """
+            docker save -o image-exports/mt-backend.tar ${BACKEND_IMAGE}:latest
 
-          // High and Critical severity scan
-          sh """
+            echo "\n==== Trivy Scan: HIGH/CRITICAL ===="
             docker run --rm \
-              -v \$(pwd)/image-exports:/images \
-              -v \$(pwd)/reports:/reports \
-              aquasec/trivy:latest image --input /images/mt-frontend.tar --format json --severity HIGH,CRITICAL -o /reports/trivy-frontend-highcrit.json
-          """
+              -v $(pwd)/image-exports:/images \
+              -v $(pwd)/reports:/reports \
+              aquasec/trivy:latest image --input /images/mt-backend.tar \
+              --format json --severity HIGH,CRITICAL -o /reports/trivy-backend-highcrit.json | tee logs/trivy-backend-highcrit.log
 
-          // Low and Medium severity scan
-          sh """
+            echo "\n==== Trivy Scan: LOW/MEDIUM ===="
             docker run --rm \
-              -v \$(pwd)/image-exports:/images \
-              -v \$(pwd)/reports:/reports \
-              aquasec/trivy:latest image --input /images/mt-frontend.tar --format json --severity LOW,MEDIUM -o /reports/trivy-frontend-lowmed.json
-          """
-
-          sh 'ls -lh reports'
+              -v $(pwd)/image-exports:/images \
+              -v $(pwd)/reports:/reports \
+              aquasec/trivy:latest image --input /images/mt-backend.tar \
+              --format json --severity LOW,MEDIUM -o /reports/trivy-backend-lowmed.json | tee logs/trivy-backend-lowmed.log
+          '''
         }
       }
     }
 
+    stage('Build Frontend Image') {
+      steps {
+        sh '''
+          echo "\n==== Building Frontend Docker Image ===="
+          . ./minikube_docker_env.sh
+          docker build -t ${FRONTEND_IMAGE} ${FRONTEND_PATH}
+        '''
+      }
+    }
 
+    stage('Trivy Scan Frontend') {
+      steps {
+        script {
+          sh 'mkdir -p reports image-exports logs'
+
+          sh '''
+            echo "\n==== Saving Frontend Image ===="
+            . ./minikube_docker_env.sh
+            docker save -o image-exports/mt-frontend.tar ${FRONTEND_IMAGE}:latest
+
+            echo "\n==== Trivy Scan: HIGH/CRITICAL ===="
+            docker run --rm \
+              -v $(pwd)/image-exports:/images \
+              -v $(pwd)/reports:/reports \
+              aquasec/trivy:latest image --input /images/mt-frontend.tar \
+              --format json --severity HIGH,CRITICAL -o /reports/trivy-frontend-highcrit.json | tee logs/trivy-frontend-highcrit.log
+
+            echo "\n==== Trivy Scan: LOW/MEDIUM ===="
+            docker run --rm \
+              -v $(pwd)/image-exports:/images \
+              -v $(pwd)/reports:/reports \
+              aquasec/trivy:latest image --input /images/mt-frontend.tar \
+              --format json --severity LOW,MEDIUM -o /reports/trivy-frontend-lowmed.json | tee logs/trivy-frontend-lowmed.log
+          '''
+        }
+      }
+    }
 
     stage('Scan Helm Charts (Trivy Config)') {
       steps {
         script {
           sh 'mkdir -p reports'
-
           def charts = [
             [name: "backend", path: "${BACKEND_PATH}"],
             [name: "frontend", path: "${FRONTEND_PATH}"],
             [name: "database", path: "${DATABASE_PATH}"]
           ]
-
           charts.each { chart ->
-            sh """
-              docker run --rm \\
-                -v "\$PWD":/project \\
-                -w /project \\
-                aquasec/trivy config ${chart.path} \\
-                --format json \\
-                -o reports/trivy-config-${chart.name}.json
-            """
+            sh '''
+              echo "\n==== Trivy Config Scan: ${chart.name} ===="
+              docker run --rm \
+                -v "$PWD":/project \
+                -w /project \
+                aquasec/trivy config ${chart.path} \
+                --format json -o reports/trivy-config-${chart.name}.json | tee logs/trivy-config-${chart.name}.log
+            '''
           }
         }
       }
     }
 
-
-
-
-
-
-
-
-
-stage('Scan Database Helm Chart (Trivy Config)') {
-  steps {
-    dir("${env.WORKSPACE}") {
-      sh """
-        docker run --rm -v "\$PWD":/project -w /project aquasec/trivy config ${DATABASE_PATH} \
-          --format json -o reports/trivy-db-config.json
-      """
-    }
-  }
-}
-
-
-
     stage('Scan Secrets in Project') {
       steps {
         script {
           sh 'mkdir -p reports'
-
-          sh """
-            docker run --rm \\
-              -v "\$PWD":/project \\
-              -w /project \\
-              aquasec/trivy fs /project \\
-              --scanners secret \\
-              --format json \\
-              -o reports/trivy-secrets.json
-          """
+          sh '''
+            echo "\n==== Trivy Secret Scan ===="
+            docker run --rm \
+              -v "$PWD":/project \
+              -w /project \
+              aquasec/trivy fs /project \
+              --scanners secret \
+              --format json -o reports/trivy-secrets.json | tee logs/trivy-secrets.log
+          '''
         }
       }
     }
 
-
-
-
-
-
-
-
-
-
-  
-    
-
-
-
-
-
-
-
     stage('Send Trivy Logs to Splunk') {
-  steps {
-    withCredentials([string(credentialsId: 'SPLUNK_HEC_TOKEN', variable: 'SPLUNK_HEC_TOKEN')]) {
-      script {
-        sh '''
-          echo "Preparing Splunk payloads"
+      steps {
+        withCredentials([string(credentialsId: 'SPLUNK_HEC_TOKEN', variable: 'SPLUNK_HEC_TOKEN')]) {
+          script {
+            sh '''
+              echo "\n==== Preparing JSON Payloads for Splunk ===="
+              for f in reports/*.json; do
+                out="reports/splunk-$(basename $f)"
+                jq -Rs '{event: .}' < "$f" > "$out"
+              done
 
-          # Backend
-          jq -Rs '{event: .}' < reports/trivy-backend-lowmed.json > reports/splunk-backend-lowmed.json
-          jq -Rs '{event: .}' < reports/trivy-backend-highcrit.json > reports/splunk-backend-highcrit.json
-
-          # Frontend
-          jq -Rs '{event: .}' < reports/trivy-frontend-lowmed.json > reports/splunk-frontend-lowmed.json
-          jq -Rs '{event: .}' < reports/trivy-frontend-highcrit.json > reports/splunk-frontend-highcrit.json
-
-          # Config scans
-          jq -Rs '{event: .}' < reports/trivy-config-backend.json > reports/splunk-config-backend.json
-          jq -Rs '{event: .}' < reports/trivy-config-frontend.json > reports/splunk-config-frontend.json
-          jq -Rs '{event: .}' < reports/trivy-config-database.json > reports/splunk-config-database.json
-          echo "Preparing Splunk payload for database config report"
-          jq -Rs '{event: .}' < reports/trivy-db-config.json > reports/splunk-db-config.json
-
-          # Secrets scan
-          jq -Rs '{event: .}' < reports/trivy-secrets.json > reports/splunk-secrets.json
-
-          echo "Sending all reports to Splunk"
-
-          for file in reports/splunk-*.json; do
-            echo "Sending $file"
-            curl -k http://192.168.49.2:31002/services/collector \\
-              -H "Authorization: Splunk $SPLUNK_HEC_TOKEN" \\
-              -H "Content-Type: application/json" \\
-              --data-binary @$file
-          done
-        '''
+              echo "\n==== Sending Payloads to Splunk ===="
+              for f in reports/splunk-*.json; do
+                echo "Sending $f"
+                curl -s -o /dev/null -w "%{http_code}\n" -k http://192.168.49.2:31002/services/collector \
+                  -H "Authorization: Splunk $SPLUNK_HEC_TOKEN" \
+                  -H "Content-Type: application/json" \
+                  --data-binary @$f
+              done
+            '''
+          }
+        }
       }
     }
-  }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     stage('Deploy Backend via Helm') {
       steps {
-        sh """
-          helm upgrade --install ${BACKEND_IMAGE} ${BACKEND_PATH} \\
-            --namespace ${BACKEND_IMAGE} --create-namespace \\
+        sh '''
+          echo "\n==== Deploying Backend ===="
+          helm upgrade --install ${BACKEND_IMAGE} ${BACKEND_PATH} \
+            --namespace ${BACKEND_IMAGE} --create-namespace \
             -f ${BACKEND_PATH}/values.yaml
-        """
+        '''
       }
     }
 
     stage('Deploy Frontend via Helm') {
       steps {
-        sh """
-          helm upgrade --install ${FRONTEND_IMAGE} ${FRONTEND_PATH} \\
-            --namespace ${FRONTEND_IMAGE} --create-namespace \\
+        sh '''
+          echo "\n==== Deploying Frontend ===="
+          helm upgrade --install ${FRONTEND_IMAGE} ${FRONTEND_PATH} \
+            --namespace ${FRONTEND_IMAGE} --create-namespace \
             -f ${FRONTEND_PATH}/values.yaml
-        """
+        '''
       }
     }
 
     stage('Deploy Database via Helm') {
       steps {
-        sh """
-          helm upgrade --install mt-database ${DATABASE_PATH} \\
-            --namespace mt-database --create-namespace \\
+        sh '''
+          echo "\n==== Deploying Database ===="
+          helm upgrade --install mt-database ${DATABASE_PATH} \
+            --namespace mt-database --create-namespace \
             -f ${DATABASE_PATH}/values.yaml
-        """
+        '''
       }
     }
   }

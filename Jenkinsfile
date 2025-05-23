@@ -39,6 +39,60 @@ pipeline {
       }
     }
 
+
+
+
+    stage('Send Trivy Logs to Splunk') {
+      steps {
+        withCredentials([string(credentialsId: 'splunk-hec-token', variable: 'SPLUNK_HEC_TOKEN')]) {
+          sh """
+            # Sending Low/Medium severity scan results to Splunk
+            curl -k http://192.168.49.2:31002/services/collector \
+              -H "Authorization: Splunk $SPLUNK_HEC_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data-binary "@trivy-backend-lowmed.json"
+
+            # Sending High/Critical severity scan results to Splunk
+            curl -k http://192.168.49.2:31002/services/collector \
+              -H "Authorization: Splunk $SPLUNK_HEC_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data-binary "@trivy-backend-highcrit.json"
+          """
+        }
+      }
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     stage('Build Frontend Image') {
       steps {
         sh """

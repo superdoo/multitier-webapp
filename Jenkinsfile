@@ -14,7 +14,7 @@ pipeline {
   stages {
     stage('SonarQube Scan') {
   steps {
-    withSonarQubeEnv('SonarQube') {
+    withSonarQubeEnv('MySonarQube') {
       withCredentials([string(credentialsId: 'multitierwebapp', variable: 'SONAR_TOKEN')]) {
         sh '''
           /opt/sonar-scanner/bin/sonar-scanner \

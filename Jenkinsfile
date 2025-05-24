@@ -8,15 +8,6 @@ pipeline {
     FRONTEND_PATH = "helm/frontend"
     DATABASE_PATH = "helm/postgresql"
     KUBECONFIG = "${HOME}/.kube/config"
-  }
-
-  stages {
-
-
-pipeline {
-  agent any
-
-  environment {
     SONAR_HOST_URL = 'http://localhost:9000'
   }
 
@@ -24,42 +15,18 @@ pipeline {
     stage('SonarQube Scan') {
       steps {
         withCredentials([string(credentialsId: 'multitierwebapp', variable: 'SONAR_TOKEN')]) {
-          sh """
-            sonar-scanner \
-              -Dsonar.projectKey=multitier-web-app \
-              -Dsonar.sources=. \
-              -Dsonar.host.url=${SONAR_HOST_URL} \
-              -Dsonar.login=${SONAR_TOKEN}
-          """
+          withSonarQubeEnv('SonarQube') {
+            sh """
+              sonar-scanner \
+                -Dsonar.projectKey=multitier-web-app \
+                -Dsonar.sources=. \
+                -Dsonar.host.url=${SONAR_HOST_URL} \
+                -Dsonar.login=${SONAR_TOKEN}
+            """
+          }
         }
       }
     }
-  }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     stage('Use Minikube Docker Daemon') {
       steps {
@@ -69,7 +36,6 @@ pipeline {
         }
       }
     }
-
 
     stage('Build Backend Image') {
       steps {
@@ -81,37 +47,29 @@ pipeline {
     }
 
     stage('Trivy Scan Backend') {
-  steps {
-    script {
-      sh 'mkdir -p reports image-exports'
-
-      sh """
-        . ./minikube_docker_env.sh
-        docker save -o image-exports/mt-backend.tar ${BACKEND_IMAGE}:latest
-      """
-
-      // High and Critical severity scan
-      sh """
-        docker run --rm \
-          -v \$(pwd)/image-exports:/images \
-          -v \$(pwd)/reports:/reports \
-          aquasec/trivy:latest image --input /images/mt-backend.tar --format json --severity HIGH,CRITICAL -o /reports/trivy-backend-highcrit.json
-      """
-
-      // Low and Medium severity scan
-      sh """
-        docker run --rm \
-          -v \$(pwd)/image-exports:/images \
-          -v \$(pwd)/reports:/reports \
-          aquasec/trivy:latest image --input /images/mt-backend.tar --format json --severity LOW,MEDIUM -o /reports/trivy-backend-lowmed.json
-      """
-
-      sh 'ls -lh reports'
+      steps {
+        script {
+          sh 'mkdir -p reports image-exports'
+          sh """
+            . ./minikube_docker_env.sh
+            docker save -o image-exports/mt-backend.tar ${BACKEND_IMAGE}:latest
+          """
+          sh """
+            docker run --rm \
+              -v \$(pwd)/image-exports:/images \
+              -v \$(pwd)/reports:/reports \
+              aquasec/trivy:latest image --input /images/mt-backend.tar --format json --severity HIGH,CRITICAL -o /reports/trivy-backend-highcrit.json
+          """
+          sh """
+            docker run --rm \
+              -v \$(pwd)/image-exports:/images \
+              -v \$(pwd)/reports:/reports \
+              aquasec/trivy:latest image --input /images/mt-backend.tar --format json --severity LOW,MEDIUM -o /reports/trivy-backend-lowmed.json
+          """
+          sh 'ls -lh reports'
+        }
+      }
     }
-  }
-}
-
-
 
     stage('Build Frontend Image') {
       steps {
@@ -126,28 +84,22 @@ pipeline {
       steps {
         script {
           sh 'mkdir -p reports image-exports'
-
           sh """
             . ./minikube_docker_env.sh
             docker save -o image-exports/mt-frontend.tar ${FRONTEND_IMAGE}:latest
           """
-
-          // High and Critical severity scan
           sh """
             docker run --rm \
               -v \$(pwd)/image-exports:/images \
               -v \$(pwd)/reports:/reports \
               aquasec/trivy:latest image --input /images/mt-frontend.tar --format json --severity HIGH,CRITICAL -o /reports/trivy-frontend-highcrit.json
           """
-
-          // Low and Medium severity scan
           sh """
             docker run --rm \
               -v \$(pwd)/image-exports:/images \
               -v \$(pwd)/reports:/reports \
               aquasec/trivy:latest image --input /images/mt-frontend.tar --format json --severity LOW,MEDIUM -o /reports/trivy-frontend-lowmed.json
           """
-
           sh 'ls -lh reports'
         }
       }
@@ -157,13 +109,11 @@ pipeline {
       steps {
         script {
           sh 'mkdir -p reports'
-
           def charts = [
             [name: "backend", path: "${BACKEND_PATH}"],
             [name: "frontend", path: "${FRONTEND_PATH}"],
             [name: "database", path: "${DATABASE_PATH}"]
           ]
-
           charts.each { chart ->
             sh """
               docker run --rm \\
@@ -178,23 +128,21 @@ pipeline {
       }
     }
 
-
-stage('Scan Database Helm Chart (Trivy Config)') {
-  steps {
-    dir("${env.WORKSPACE}") {
-      sh """
-        docker run --rm -v "\$PWD":/project -w /project aquasec/trivy config ${DATABASE_PATH} \
-          --format json -o reports/trivy-db-config.json
-      """
+    stage('Scan Database Helm Chart (Trivy Config)') {
+      steps {
+        dir("${env.WORKSPACE}") {
+          sh """
+            docker run --rm -v "\$PWD":/project -w /project aquasec/trivy config ${DATABASE_PATH} \
+              --format json -o reports/trivy-db-config.json
+          """
+        }
+      }
     }
-  }
-}
 
     stage('Scan Secrets in Project') {
       steps {
         script {
           sh 'mkdir -p reports'
-
           sh """
             docker run --rm \\
               -v "\$PWD":/project \\
@@ -207,16 +155,6 @@ stage('Scan Database Helm Chart (Trivy Config)') {
         }
       }
     }
-
-
-
-
-
-
-
-
-
-
 
     stage('Send Trivy Logs to Splunk') {
       steps {
@@ -259,22 +197,11 @@ stage('Scan Database Helm Chart (Trivy Config)') {
       }
     }
 
-
-
-
-
-
-
-
-
-
-
-
     stage('Deploy Backend via Helm') {
       steps {
         sh """
-          helm upgrade --install ${BACKEND_IMAGE} ${BACKEND_PATH} \\
-            --namespace ${BACKEND_IMAGE} --create-namespace \\
+          helm upgrade --install ${BACKEND_IMAGE} ${BACKEND_PATH} \
+            --namespace ${BACKEND_IMAGE} --create-namespace \
             -f ${BACKEND_PATH}/values.yaml
         """
       }
@@ -283,8 +210,8 @@ stage('Scan Database Helm Chart (Trivy Config)') {
     stage('Deploy Frontend via Helm') {
       steps {
         sh """
-          helm upgrade --install ${FRONTEND_IMAGE} ${FRONTEND_PATH} \\
-            --namespace ${FRONTEND_IMAGE} --create-namespace \\
+          helm upgrade --install ${FRONTEND_IMAGE} ${FRONTEND_PATH} \
+            --namespace ${FRONTEND_IMAGE} --create-namespace \
             -f ${FRONTEND_PATH}/values.yaml
         """
       }
@@ -293,8 +220,8 @@ stage('Scan Database Helm Chart (Trivy Config)') {
     stage('Deploy Database via Helm') {
       steps {
         sh """
-          helm upgrade --install mt-database ${DATABASE_PATH} \\
-            --namespace mt-database --create-namespace \\
+          helm upgrade --install mt-database ${DATABASE_PATH} \
+            --namespace mt-database --create-namespace \
             -f ${DATABASE_PATH}/values.yaml
         """
       }

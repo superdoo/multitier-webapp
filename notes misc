@@ -1,15 +1,15 @@
 curl -k http://192.168.49.2:31002/services/collector/event \
-  -H "Authorization: Splunk 4cd33076-078d-4112-bf8f-b3645046965d" \
+  -H "Authorization: Splunk 8c9c6b4c-dfbb-4ab2-9d67-83c2a1550756" \
   -H "Content-Type: application/json" \
-  -d '{"event": "HEC test log from CLI", "sourcetype": "trivy"}'
+  -d '{"event": "HEC test log from CLI-mb", "sourcetype": "trivy"}'
 
 
 
-  hec token 4cd33076-078d-4112-bf8f-b3645046965d
+  hec token 8c9c6b4c-dfbb-4ab2-9d67-83c2a1550756
 
 
   curl -s -k -X POST "http://192.168.49.2:31002" \
-  -H "Authorization: Splunk ${4cd33076-078d-4112-bf8f-b3645046965d}" \
+  -H "Authorization: Splunk ${8c9c6b4c-dfbb-4ab2-9d67-83c2a1550756}" \
   -H "Content-Type: application/json" \
   -d @/tmp/splunk_payload.json
   
@@ -26,7 +26,15 @@ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
 
 
 
-curl -k -H "Authorization: Splunk 4cd33076-078d-4112-bf8f-b3645046965d" \
+curl -k -H "Authorization: Splunk 8c9c6b4c-dfbb-4ab2-9d67-83c2a1550756" \
      -H "Content-Type: application/json" \
      -d '{"event":"This is a test from CLI-Hudi Doo","sourcetype":"trivy","source":"manual-test","host":"jenkins"}' \
      http://192.168.49.2:31002/services/collector/event
+
+
+
+
+curl -k http://192.168.49.2:31002/services/collector \
+  -H "Authorization: Splunk 8c9c6b4c-dfbb-4ab2-9d67-83c2a1550756" \
+  -H "Content-Type: application/json" \
+  -d '{"event":"test event from curl"}'

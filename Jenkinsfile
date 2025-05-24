@@ -11,6 +11,56 @@ pipeline {
   }
 
   stages {
+
+
+pipeline {
+  agent any
+
+  environment {
+    SONAR_HOST_URL = 'http://localhost:9000'
+  }
+
+  stages {
+    stage('SonarQube Scan') {
+      steps {
+        withCredentials([string(credentialsId: 'multitierwebapp', variable: 'SONAR_TOKEN')]) {
+          sh """
+            sonar-scanner \
+              -Dsonar.projectKey=multitier-web-app \
+              -Dsonar.sources=. \
+              -Dsonar.host.url=${SONAR_HOST_URL} \
+              -Dsonar.login=${SONAR_TOKEN}
+          """
+        }
+      }
+    }
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     stage('Use Minikube Docker Daemon') {
       steps {
         script {
@@ -19,6 +69,7 @@ pipeline {
         }
       }
     }
+
 
     stage('Build Backend Image') {
       steps {

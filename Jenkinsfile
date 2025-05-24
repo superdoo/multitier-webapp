@@ -13,20 +13,19 @@ pipeline {
 
   stages {
     stage('SonarQube Scan') {
-      steps {
-        withCredentials([string(credentialsId: 'multitierwebapp', variable: 'SONAR_TOKEN')]) {
-          withSonarQubeEnv('SonarQube') {
-            sh """
-              sonar-scanner \
-                -Dsonar.projectKey=multitier-web-app \
-                -Dsonar.sources=. \
-                -Dsonar.host.url=${SONAR_HOST_URL} \
-                -Dsonar.login=${SONAR_TOKEN}
-            """
-          }
-        }
+  steps {
+    withSonarQubeEnv('SonarQube') {
+      withCredentials([string(credentialsId: 'multitierwebapp', variable: 'SONAR_TOKEN')]) {
+        sh '''
+          /opt/sonar-scanner/bin/sonar-scanner \
+            -Dsonar.projectKey=multitier-web-app \
+            -Dsonar.sources=. \
+            -Dsonar.login=$SONAR_TOKEN
+        '''
       }
     }
+  }
+}
 
     stage('Use Minikube Docker Daemon') {
       steps {

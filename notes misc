@@ -38,3 +38,25 @@ curl -k http://192.168.49.2:31002/services/collector \
   -H "Authorization: Splunk 8c9c6b4c-dfbb-4ab2-9d67-83c2a1550756" \
   -H "Content-Type: application/json" \
   -d '{"event":"test event from curl"}'
+
+
+
+
+
+
+kubectl exec -it mt-backend-5b64cd5648-tsk29  -n mt-backend -- /bin/sh
+python
+>>> import psycopg2
+>>> conn = psycopg2.connect(host='mt-database-postgresql.mt-database.svc.cluster.local', user='postgres', password='uTAnVi3CBD', dbname='postgres')
+>>> cur = conn.cursor()
+>>> cur.execute("SELECT 1")
+>>> print(cur.fetchone())
+
+
+
+
+database instert, login stuff
+kubectl exec -i mt-postgresql-0 -n mt-database -- env PGPASSWORD=secretpassword psql -U postgres -d postgres < init_schema.sql
+
+to login via bash use the following:
+ kubectl exec -it mt-postgresql-0 -n mt-database -- psql -U postgres -d postgres

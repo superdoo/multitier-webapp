@@ -19,3 +19,8 @@ env:
     value: "postgres"
   - name: POSTGRES_DB
     value: "postgres"
+
+initdbScripts:
+  init_schema.sql: |
+    {{ .Files.Get "files/init_schema.sql" | indent 4 }}
+

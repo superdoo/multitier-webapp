@@ -14,10 +14,10 @@ content:
   index.html: |
     <html>
       <body>
-        <h1>Hello from Michae's Frontend!</h1>
+        <h1>Hello from Michael's Frontend!</h1>
         <p>Calling backend at /api</p>
       </body>
     </html>
+
 backend:
   url: http://192.168.49.2:30086
-

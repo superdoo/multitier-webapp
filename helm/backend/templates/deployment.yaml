@@ -20,10 +20,15 @@ spec:
             - containerPort: {{ .Values.service.port }}
           env:
             - name: POSTGRES_HOST
-              value: "mt-database-postgresql.mt-database.svc.cluster.local"
+              value: mt-postgresql.mt-database.svc.cluster.local
             - name: POSTGRES_USER
-              value: "postgres"
+              valueFrom:
+                secretKeyRef:
+                  name: mt-postgresql
+                  key: postgres-user
             - name: POSTGRES_PASSWORD
-              value: "secretpassword"
-            - name: POSTGRES_DB
-              value: "postgres"
+              valueFrom:
+                secretKeyRef:
+                  name: mt-postgresql
+                  key: postgres-password
+

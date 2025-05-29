@@ -5,8 +5,65 @@ metadata:
 data:
   index.html: |-
     <html>
+      <head>
+        <title>Michael's Frontend</title>
+        <style>
+          body { font-family: Arial, sans-serif; max-width: 600px; margin: 2em auto; padding: 1em; }
+          h1 { color: #2c3e50; }
+          form { margin-top: 1.5em; }
+          label { display: block; margin-top: 1em; }
+          input[type="text"], input[type="email"], input[type="number"] { width: 100%; padding: 0.5em; }
+          button { margin-top: 1em; padding: 0.5em 1em; background-color: #3498db; color: white; border: none; cursor: pointer; }
+          button:hover { background-color: #2980b9; }
+          .response { margin-top: 1em; color: green; }
+          .error { margin-top: 1em; color: red; }
+        </style>
+      </head>
       <body>
-        <h1>Hello from Frontend!</h1>
-        <p>Calling backend at <a href="http://192.168.49.2:30086/api/items">http://192.168.49.2:30086/api/items</a></p>
+        <h1>Hello from Michael's Frontend!</h1>
+         <!-- <p>Calling backend at <a href="{{ .Values.backend.url }}/api/users">{{ .Values.backend.url }}/api/users</a></p> -->
+
+        <h2>Create User</h2>
+        <form id="userForm">
+          <label for="name">Name:</label>
+          <input type="text" id="name" name="name" required>
+
+          <label for="email">Email:</label>
+          <input type="email" id="email" name="email" required>
+
+          <button type="submit">Create User</button>
+        </form>
+
+        <div id="responseMessage"></div>
+
+        <script>
+          const form = document.getElementById('userForm');
+          const responseMessage = document.getElementById('responseMessage');
+          form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            responseMessage.textContent = '';
+            const name = form.name.value;
+            const email = form.email.value;
+            try {
+              const res = await fetch('{{ .Values.backend.url }}/api/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, email })
+              });
+              const data = await res.json();
+              if (res.ok) {
+                responseMessage.textContent = `User created with ID ${data.id}`;
+                responseMessage.className = 'response';
+                form.reset();
+              } else {
+                responseMessage.textContent = `Error: ${data.error}`;
+                responseMessage.className = 'error';
+              }
+            } catch (err) {
+              responseMessage.textContent = 'Network error';
+              responseMessage.className = 'error';
+            }
+          });
+        </script>
       </body>
     </html>
